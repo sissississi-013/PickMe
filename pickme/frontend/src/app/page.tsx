@@ -2,73 +2,70 @@
 
 import { useState } from "react";
 import { ScanInput } from "@/components/scan-input";
-import { ScorePanel } from "@/components/score-panel";
-import { TrafficPanel } from "@/components/traffic-panel";
-import { OptimizerPanel } from "@/components/optimizer-panel";
-import { BenchmarkPanel } from "@/components/benchmark-panel";
-import { apiPost, apiUpload } from "@/lib/api";
+import { DiscoveryTab } from "@/components/discovery-tab";
+import { MetricsTab } from "@/components/metrics-tab";
+import { SimulationTab } from "@/components/simulation-tab";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { apiPost } from "@/lib/api";
 
 export default function Home() {
+  const [discovery, setDiscovery] = useState<any>(null);
   const [reports, setReports] = useState<any[]>([]);
-  const [traffic, setTraffic] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [lastUrl, setLastUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [lastUrl, setLastUrl] = useState("");
 
   async function handleScan(url: string) {
     setLoading(true);
+    setError(null);
     setLastUrl(url);
     try {
-      const webReport = await apiPost("/api/scout/web", { url });
-      const apiReport = await apiPost("/api/scout/api", { url }).catch(() => null);
-      const results = [webReport, apiReport].filter(Boolean);
-      setReports(results);
-    } catch (err) {
-      console.error("Scan failed:", err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleUploadLog(file: File) {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await apiUpload("/api/traffic/classify", file);
-      setTraffic(result);
+      const [discoverResult, webReport, apiReport] = await Promise.all([
+        apiPost("/api/discover", { url }),
+        apiPost("/api/scout/web", { url }),
+        apiPost("/api/scout/api", { url }).catch(() => null),
+      ]);
+      setDiscovery(discoverResult);
+      setReports([webReport, apiReport].filter(Boolean));
     } catch (err: any) {
-      const msg = err?.message || String(err);
-      setError(`Upload failed: ${msg}`);
-      console.error("Upload failed:", err);
+      setError(err?.message || "Scan failed");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-background p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <main className="min-h-screen bg-background">
+      <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Pick Me</h1>
-          <p className="text-muted-foreground">Make AI agents choose you</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Pick Me</h1>
+          <p className="text-sm text-muted-foreground">AI Agent Discoverability Engine</p>
         </div>
 
-        <ScanInput onScan={handleScan} onUploadLog={handleUploadLog} loading={loading} />
+        <ScanInput onScan={handleScan} loading={loading} />
 
         {error && (
-          <div className="bg-red-100 dark:bg-red-950 border border-red-500 text-red-700 dark:text-red-300 px-4 py-2 rounded">
+          <div className="text-sm text-destructive border border-destructive/30 rounded-md px-3 py-2">
             {error}
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <ScorePanel reports={reports} loading={loading} />
-          <TrafficPanel traffic={traffic} />
-        </div>
-
-        <OptimizerPanel reports={reports} onRescan={() => handleScan(lastUrl)} />
-
-        <BenchmarkPanel beforeScore={reports.length > 0 ? Math.round(reports.reduce((s, r) => s + r.total_score, 0) / reports.reduce((s, r) => s + r.max_score, 0) * 100) : null} afterScore={null} />
+        <Tabs defaultValue={0}>
+          <TabsList variant="line">
+            <TabsTrigger value={0}>Discovery</TabsTrigger>
+            <TabsTrigger value={1}>Metrics</TabsTrigger>
+            <TabsTrigger value={2}>Simulation</TabsTrigger>
+          </TabsList>
+          <TabsContent value={0}>
+            <DiscoveryTab discovery={discovery} loading={loading} />
+          </TabsContent>
+          <TabsContent value={1}>
+            <MetricsTab reports={reports} loading={loading} />
+          </TabsContent>
+          <TabsContent value={2}>
+            <SimulationTab reports={reports} lastUrl={lastUrl} onRescan={() => handleScan(lastUrl)} />
+          </TabsContent>
+        </Tabs>
       </div>
     </main>
   );
