@@ -48,10 +48,10 @@ interface DiscoveryTabProps {
 }
 
 const IMPACT_STYLES: Record<string, string> = {
-  critical: "border-red-500 bg-red-50 dark:bg-red-950/20",
-  high: "border-orange-400 bg-orange-50 dark:bg-orange-950/20",
-  medium: "border-yellow-400 bg-yellow-50 dark:bg-yellow-950/20",
-  low: "border-green-500 bg-green-50 dark:bg-green-950/20",
+  critical: "border-red-500/40 bg-red-500/5",
+  high: "border-orange-400/40 bg-orange-400/5",
+  medium: "border-yellow-400/40 bg-yellow-400/5",
+  low: "border-green-500/40 bg-green-500/5",
 };
 
 const IMPACT_BADGE: Record<string, "destructive" | "default" | "secondary" | "outline"> = {
@@ -86,8 +86,8 @@ export function DiscoveryTab({ discovery, loading }: DiscoveryTabProps) {
 
   const pct = Math.round(discovery.ai_visibility_pct);
   const donutData = [{ value: pct }, { value: 100 - pct }];
-  const color = pct >= 70 ? "#22c55e" : pct >= 40 ? "#eab308" : "#ef4444";
-  const textColor = pct >= 70 ? "text-green-500" : pct >= 40 ? "text-yellow-500" : "text-red-500";
+  const color = pct >= 70 ? "#6366f1" : pct >= 40 ? "#eab308" : "#ef4444";
+  const textColor = pct >= 70 ? "text-indigo-400" : pct >= 40 ? "text-yellow-500" : "text-red-500";
   const totalBots = discovery.bots_allowed + discovery.bots_blocked;
 
   return (
@@ -101,7 +101,7 @@ export function DiscoveryTab({ discovery, loading }: DiscoveryTabProps) {
               <PieChart>
                 <Pie data={donutData} cx="50%" cy="50%" innerRadius={52} outerRadius={68} startAngle={90} endAngle={-270} dataKey="value" strokeWidth={0}>
                   <Cell fill={color} />
-                  <Cell fill="#e5e7eb" />
+                  <Cell fill="rgba(255,255,255,0.06)" />
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
@@ -146,7 +146,7 @@ export function DiscoveryTab({ discovery, loading }: DiscoveryTabProps) {
 
       {/* Discovery Signals with Consequences */}
       <div className="space-y-3">
-        <p className="font-medium">
+        <p className="font-medium text-foreground/90">
           <em>Discovery Signals</em>
         </p>
         <p className="text-sm text-muted-foreground">
@@ -163,7 +163,7 @@ export function DiscoveryTab({ discovery, loading }: DiscoveryTabProps) {
 
       {/* Content Quality */}
       <div className="space-y-3">
-        <p className="font-medium">
+        <p className="font-medium text-foreground/90">
           <em>Content Quality</em>
         </p>
         <p className="text-sm text-muted-foreground">
@@ -180,7 +180,7 @@ export function DiscoveryTab({ discovery, loading }: DiscoveryTabProps) {
 
       {/* Bot Access Grid */}
       <div className="space-y-3">
-        <p className="font-medium">
+        <p className="font-medium text-foreground/90">
           <em>Bot Access Map</em>
         </p>
         <p className="text-sm text-muted-foreground">
@@ -188,7 +188,7 @@ export function DiscoveryTab({ discovery, loading }: DiscoveryTabProps) {
         </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           {discovery.bot_access.map((bot) => (
-            <div key={bot.name} className="border rounded-md px-3 py-2 flex items-center gap-2">
+            <div key={bot.name} className="border rounded-md px-3 py-2 flex items-center gap-2 bg-card">
               <span className={`w-2 h-2 rounded-full flex-shrink-0 ${bot.allowed ? "bg-green-500" : "bg-red-500"}`} />
               <div className="min-w-0">
                 <p className="text-sm font-mono truncate">{bot.name}</p>
@@ -204,7 +204,7 @@ export function DiscoveryTab({ discovery, loading }: DiscoveryTabProps) {
       {/* Agent's View — Markdown Preview */}
       {discovery.markdown_preview && (
         <div className="space-y-3">
-          <p className="font-medium">
+          <p className="font-medium text-foreground/90">
             <em>Agent&apos;s View</em>
           </p>
           <p className="text-sm text-muted-foreground">

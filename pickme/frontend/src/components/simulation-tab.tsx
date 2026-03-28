@@ -201,7 +201,7 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
             {recommendations.map((rec, i) => (
               <div
                 key={i}
-                className="border rounded-md p-3 cursor-pointer hover:bg-muted/30 transition-colors"
+                className="border rounded-md p-3 cursor-pointer bg-card hover:bg-muted/40 transition-colors"
                 onClick={() => setExpandedRec(expandedRec === i ? null : i)}
               >
                 <div className="flex items-center justify-between">
@@ -218,7 +218,7 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
                     {rec.why_it_matters && (
                       <p className="text-xs text-muted-foreground">{rec.why_it_matters}</p>
                     )}
-                    <pre className="text-xs font-mono bg-muted/60 p-3 rounded overflow-x-auto whitespace-pre-wrap border">
+                    <pre className="text-xs font-mono bg-zinc-950 text-zinc-300 p-3 rounded overflow-x-auto whitespace-pre-wrap border border-border">
                       {rec.fix}
                     </pre>
                   </div>
@@ -316,8 +316,8 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
             {/* Summary */}
             <div className={`border rounded-md p-4 ${
               simResult.optimization_effective
-                ? "border-green-500 bg-green-50 dark:bg-green-950/30"
-                : "border-border"
+                ? "border-green-500/40 bg-green-500/5"
+                : "border-border bg-card"
             }`}>
               <p className="text-sm font-medium">{simResult.summary}</p>
             </div>
@@ -332,7 +332,7 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
             {simResult.optimized_description && (
               <div className="space-y-1.5">
                 <p className="text-sm font-medium">Optimized Description</p>
-                <pre className="text-sm font-mono bg-muted/40 p-3 rounded-md border whitespace-pre-wrap">
+                <pre className="text-sm font-mono bg-zinc-950 text-zinc-300 p-3 rounded-md border border-border whitespace-pre-wrap">
                   {simResult.optimized_description}
                 </pre>
               </div>
@@ -350,8 +350,8 @@ function AgentCard({ decision, targetTool, title }: { decision: AgentDecision; t
   const pickedTarget = decision.picked_tool.toLowerCase().includes(targetTool.toLowerCase());
 
   return (
-    <div className={`border rounded-md p-4 space-y-3 ${
-      pickedTarget ? "border-green-500" : "border-red-500"
+    <div className={`border rounded-md p-4 space-y-3 bg-card ${
+      pickedTarget ? "border-green-500/50" : "border-red-500/50"
     }`}>
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium">{title}</p>
@@ -378,7 +378,7 @@ function AgentCard({ decision, targetTool, title }: { decision: AgentDecision; t
               key={i}
               className={`text-xs font-mono px-1.5 py-0.5 rounded ${
                 t.toLowerCase().includes(targetTool.toLowerCase())
-                  ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"
+                  ? "bg-green-500/15 text-green-400"
                   : "bg-muted text-muted-foreground"
               }`}
             >
