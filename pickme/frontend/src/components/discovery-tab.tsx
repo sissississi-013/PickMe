@@ -125,8 +125,8 @@ export function DiscoveryTab({ discovery, loading }: DiscoveryTabProps) {
                 />
                 <span className="text-xs font-mono font-medium truncate">{bot.name}</span>
               </div>
-              <span className="text-[10px] text-muted-foreground pl-3.5 truncate">{bot.operator}</span>
-              <span className={`text-[10px] pl-3.5 ${bot.allowed ? "text-green-600" : "text-red-500"}`}>
+              <span className="text-xs text-muted-foreground pl-3.5 truncate">{bot.operator}</span>
+              <span className={`text-xs pl-3.5 ${bot.allowed ? "text-green-600" : "text-red-500"}`}>
                 {bot.allowed ? "Allowed" : "Blocked"}
               </span>
             </div>
@@ -144,11 +144,11 @@ export function DiscoveryTab({ discovery, loading }: DiscoveryTabProps) {
           <div className="border rounded-md p-3 space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-xs font-mono font-medium">robots.txt</span>
-              <Badge variant={discovery.robots_txt_found ? "default" : "secondary"} className="text-[10px] h-4">
+              <Badge variant={discovery.robots_txt_found ? "default" : "secondary"} className="text-xs h-4">
                 {discovery.robots_txt_found ? "found" : "missing"}
               </Badge>
             </div>
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {discovery.robots_txt_found
                 ? "Crawl directives present"
                 : "No crawl directives"}
@@ -159,17 +159,17 @@ export function DiscoveryTab({ discovery, loading }: DiscoveryTabProps) {
           <div className="border rounded-md p-3 space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-xs font-mono font-medium">llms.txt</span>
-              <Badge variant={discovery.llms_txt_found ? "default" : "secondary"} className="text-[10px] h-4">
+              <Badge variant={discovery.llms_txt_found ? "default" : "secondary"} className="text-xs h-4">
                 {discovery.llms_txt_found ? "found" : "missing"}
               </Badge>
             </div>
             {discovery.llms_txt_found && discovery.llms_txt_preview ? (
-              <p className="text-[10px] font-mono text-muted-foreground truncate">{discovery.llms_txt_preview}</p>
+              <p className="text-xs font-mono text-muted-foreground truncate">{discovery.llms_txt_preview}</p>
             ) : (
-              <p className="text-[10px] text-muted-foreground">AI context file not found</p>
+              <p className="text-xs text-muted-foreground">AI context file not found</p>
             )}
             {discovery.llms_txt_found && (
-              <p className="text-[10px] text-muted-foreground font-mono">{discovery.llms_txt_length} chars</p>
+              <p className="text-xs text-muted-foreground font-mono">{discovery.llms_txt_length} chars</p>
             )}
           </div>
 
@@ -177,14 +177,14 @@ export function DiscoveryTab({ discovery, loading }: DiscoveryTabProps) {
           <div className="border rounded-md p-3 space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-xs font-mono font-medium">sitemap.xml</span>
-              <Badge variant={discovery.sitemap_found ? "default" : "secondary"} className="text-[10px] h-4">
+              <Badge variant={discovery.sitemap_found ? "default" : "secondary"} className="text-xs h-4">
                 {discovery.sitemap_found ? "found" : "missing"}
               </Badge>
             </div>
             {discovery.sitemap_found && discovery.sitemap_url_count !== null ? (
-              <p className="text-[10px] font-mono text-muted-foreground">{discovery.sitemap_url_count} URLs indexed</p>
+              <p className="text-xs font-mono text-muted-foreground">{discovery.sitemap_url_count} URLs indexed</p>
             ) : (
-              <p className="text-[10px] text-muted-foreground">No sitemap detected</p>
+              <p className="text-xs text-muted-foreground">No sitemap detected</p>
             )}
           </div>
         </div>

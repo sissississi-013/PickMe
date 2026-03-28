@@ -123,10 +123,10 @@ export function MetricsTab({ reports, loading }: MetricsTabProps) {
                           {cat.name}
                         </span>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono text-muted-foreground">
+                          <span className="text-xs font-mono text-muted-foreground">
                             {cat.score}/{cat.max_score}
                           </span>
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             {isExpanded ? "▲" : "▼"}
                           </span>
                         </div>
@@ -148,15 +148,15 @@ export function MetricsTab({ reports, loading }: MetricsTabProps) {
                                 </Badge>
                                 <span className="text-xs font-mono">{check.name}</span>
                               </div>
-                              <span className="text-[10px] font-mono text-muted-foreground">
+                              <span className="text-xs font-mono text-muted-foreground">
                                 {check.points_earned}/{check.points_possible} pts
                               </span>
                             </div>
                             {check.detail && (
-                              <p className="text-[10px] text-muted-foreground pl-10">{check.detail}</p>
+                              <p className="text-xs text-muted-foreground pl-10">{check.detail}</p>
                             )}
                             {check.research_basis && (
-                              <p className="text-[10px] text-muted-foreground/60 pl-10 italic">{check.research_basis}</p>
+                              <p className="text-xs text-muted-foreground/60 pl-10 italic">{check.research_basis}</p>
                             )}
                           </div>
                         ))}

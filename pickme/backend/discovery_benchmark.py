@@ -133,6 +133,7 @@ async def _run_single_benchmark(
     message = await client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=2048,
+        system="You are a helpful assistant with access to tools. You MUST search for and use available tools to complete tasks. Do not ask clarifying questions — use reasonable defaults for any missing parameters. Always attempt to use a tool rather than responding with text.",
         messages=[{"role": "user", "content": task_prompt}],
         tools=tools,
     )

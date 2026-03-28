@@ -142,7 +142,7 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">Your Tool Definition (MCP/JSON)</label>
             <textarea
-              className="w-full h-36 text-[11px] font-mono border rounded-md p-3 bg-muted/30 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+              className="w-full h-36 text-sm font-mono border rounded-md p-3 bg-muted/30 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
               value={toolJson}
               onChange={(e) => setToolJson(e.target.value)}
               spellCheck={false}
@@ -210,7 +210,7 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
             {benchResult.optimized_description && (
               <div className="space-y-1.5">
                 <p className="text-xs text-muted-foreground">Optimized Description</p>
-                <pre className="text-[11px] font-mono bg-muted/40 p-3 rounded-md border whitespace-pre-wrap">
+                <pre className="text-sm font-mono bg-muted/40 p-3 rounded-md border whitespace-pre-wrap">
                   {benchResult.optimized_description}
                 </pre>
               </div>
@@ -263,7 +263,7 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Badge variant={severityVariant[rec.severity] ?? "outline"} className="text-[10px] h-4">
+                    <Badge variant={severityVariant[rec.severity] ?? "outline"} className="text-xs h-4">
                       {rec.severity}
                     </Badge>
                     <span className="text-xs font-medium">{rec.issue}</span>
@@ -273,9 +273,9 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
                 {expandedRec === i && (
                   <div className="mt-3 pt-3 border-t space-y-2">
                     {rec.why_it_matters && (
-                      <p className="text-[10px] text-muted-foreground">{rec.why_it_matters}</p>
+                      <p className="text-xs text-muted-foreground">{rec.why_it_matters}</p>
                     )}
-                    <pre className="text-[10px] font-mono bg-muted/60 p-3 rounded overflow-x-auto whitespace-pre-wrap border">
+                    <pre className="text-xs font-mono bg-muted/60 p-3 rounded overflow-x-auto whitespace-pre-wrap border">
                       {rec.fix}
                     </pre>
                   </div>
@@ -314,12 +314,12 @@ function BenchmarkResultCard({ title, result }: { title: string; result: Discove
 
       {result.competing_tools.length > 0 && (
         <div className="space-y-1">
-          <p className="text-[10px] text-muted-foreground">Search results:</p>
+          <p className="text-xs text-muted-foreground">Search results:</p>
           <div className="flex flex-wrap gap-1">
             {result.competing_tools.map((name, i) => (
               <span
                 key={i}
-                className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                className={`text-xs font-mono px-1.5 py-0.5 rounded ${
                   name === result.target_tool_name
                     ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"
                     : "bg-muted text-muted-foreground"
@@ -333,7 +333,7 @@ function BenchmarkResultCard({ title, result }: { title: string; result: Discove
       )}
 
       {result.raw_response.length > 0 && (
-        <details className="text-[10px]">
+        <details className="text-xs">
           <summary className="text-muted-foreground cursor-pointer">Raw response</summary>
           <pre className="font-mono mt-1 p-2 bg-muted/40 rounded whitespace-pre-wrap overflow-x-auto">
             {result.raw_response.join("\n")}
@@ -356,7 +356,7 @@ function StatusBadge({ label, value }: { label: string; value: boolean }) {
       >
         {value ? "Y" : "N"}
       </div>
-      <p className="text-[10px] text-muted-foreground mt-1">{label}</p>
+      <p className="text-xs text-muted-foreground mt-1">{label}</p>
     </div>
   );
 }
