@@ -69,3 +69,28 @@ class BenchmarkReport(BaseModel):
     target_name: str
     prompt_used: str
     results: list[BenchmarkResult]
+
+class BotAccessEntry(BaseModel):
+    name: str
+    operator: str
+    category: str
+    allowed: bool
+    market_share: float  # for weighting in visibility calc
+
+class DiscoveryReport(BaseModel):
+    url: str
+    robots_txt_found: bool
+    robots_txt_raw: str | None = None
+    bot_access: list[BotAccessEntry]
+    bots_allowed: int
+    bots_blocked: int
+    llms_txt_found: bool
+    llms_txt_length: int = 0
+    llms_txt_preview: str | None = None
+    sitemap_found: bool
+    sitemap_url_count: int | None = None
+    is_ssr: bool
+    structured_data_types: list[str] = []
+    ai_visibility_pct: int
+    page_title: str | None = None
+    word_count: int = 0

@@ -5,6 +5,8 @@ import tempfile
 import os
 
 from models import TrafficSummary, ScoutReport, OptimizationReport, BenchmarkReport
+from discovery import discover_url
+from models import DiscoveryReport
 from traffic_classifier import classify_log
 from web_scout import scan_website
 from api_scout import scan_api
@@ -61,6 +63,13 @@ class MCPScanRequest(BaseModel):
 @app.post("/api/scout/mcp", response_model=ScoutReport)
 async def scout_mcp(req: MCPScanRequest):
     return score_mcp_tools(req.tools, req.server_name)
+
+
+# --- Discovery ---
+
+@app.post("/api/discover", response_model=DiscoveryReport)
+async def discover(req: ScanRequest):
+    return await discover_url(req.url)
 
 
 # --- Optimizer ---
