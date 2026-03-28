@@ -66,7 +66,7 @@ const DEFAULT_TOOL = `{
   }
 }`;
 
-const DEFAULT_TASK = "Create a new issue to track this bug in our repository";
+const DEFAULT_TASK = "Create a new issue titled 'Login button not working' in the acme/webapp repository";
 
 export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps) {
   // Optimizer state

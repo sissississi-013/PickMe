@@ -29,7 +29,7 @@ async def run_discovery_benchmark(
     before = await _run_single_benchmark(tool, distractors, task_prompt)
 
     # Step 3: Optimize the tool description
-    optimized_tool = await _optimize_tool(tool)
+    optimized_tool = await _optimize_tool(tool, task_prompt)
 
     # Step 4: Run benchmark with optimized tool
     after = await _run_single_benchmark(optimized_tool, distractors, task_prompt)
@@ -191,18 +191,23 @@ async def _run_single_benchmark(
     )
 
 
-async def _optimize_tool(tool: dict) -> dict:
+async def _optimize_tool(tool: dict, task_prompt: str = "") -> dict:
     """Use Claude to rewrite the tool for maximum discoverability."""
     prompt = f"""You are an MCP tool description optimizer. Rewrite this tool definition for maximum discoverability by AI agents.
+
+The tool will be used for tasks like: "{task_prompt}"
 
 Current tool:
 {json.dumps(tool, indent=2)}
 
 Rules for optimization:
-1. Name: Use {{service}}_{{action}}_{{resource}} pattern, task-oriented
-2. Description: Under 100 chars, state clear purpose, specify when to invoke ("Use when..."), describe return value
-3. inputSchema: Use flat parameters with descriptions, add enums where appropriate, add sensible defaults
-4. Include discoverable keywords that match how users describe the task
+1. Name: Use {{service}}_{{action}}_{{resource}} pattern — e.g. github_create_issue, slack_send_message. The name MUST clearly identify the service and action.
+2. Description: Under 100 chars, state clear purpose, specify when to invoke ("Use when..."), describe return value. Include keywords an agent would search for.
+3. inputSchema: Use flat parameters (no nested objects) with string descriptions, add enums where appropriate, add sensible defaults. Each property must have a "type" and "description".
+4. The optimized tool must be specific to a real service/domain — NOT generic.
+
+Example of a well-optimized tool:
+{{"name": "github_create_issue", "description": "Create a new issue in a GitHub repository. Use when tracking bugs or feature requests. Returns issue URL.", "inputSchema": {{"type": "object", "properties": {{"repo": {{"type": "string", "description": "Repository in owner/repo format"}}, "title": {{"type": "string", "description": "Issue title"}}, "body": {{"type": "string", "description": "Issue body in markdown"}}}}, "required": ["repo", "title"]}}}}
 
 Return ONLY the optimized tool as a JSON object with "name", "description", and "inputSchema" fields. No markdown fencing."""
 
