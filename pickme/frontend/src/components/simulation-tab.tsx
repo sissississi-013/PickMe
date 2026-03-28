@@ -7,28 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { apiPost } from "@/lib/api";
 
-interface CheckResult {
-  name: string;
-  passed: boolean;
-  points_earned: number;
-  points_possible: number;
-  detail: string;
-  research_basis: string;
-}
-
-interface CategoryScore {
-  name: string;
-  score: number;
-  max_score: number;
-  checks: CheckResult[];
-}
-
 export interface ScoutReport {
   target: string;
   scout_type: string;
   total_score: number;
   max_score: number;
-  categories: CategoryScore[];
+  categories: any[];
 }
 
 interface Recommendation {
@@ -37,6 +21,25 @@ interface Recommendation {
   why_it_matters: string;
   fix: string;
   predicted_impact: number;
+}
+
+interface DiscoveryResult {
+  target_tool_name: string;
+  task_prompt: string;
+  num_distractors: number;
+  discovered: boolean;
+  selected: boolean;
+  invoked_correctly: boolean;
+  discovery_rank: number | null;
+  competing_tools: string[];
+  raw_response: string[];
+}
+
+interface DiscoveryBenchmarkReport {
+  before: DiscoveryResult;
+  after: DiscoveryResult | null;
+  optimized_description: string | null;
+  discovery_improvement: string | null;
 }
 
 interface SimulationTabProps {
@@ -52,9 +55,18 @@ const severityVariant: Record<string, "destructive" | "default" | "secondary" | 
   low: "outline",
 };
 
-const DEFAULT_TOOL_BEFORE = `{"name": "create", "description": "creates stuff", "inputSchema": {"type": "object", "properties": {"data": {"type": "object"}}}}`;
+const DEFAULT_TOOL = `{
+  "name": "create",
+  "description": "creates stuff",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "data": { "type": "object" }
+    }
+  }
+}`;
 
-const DEFAULT_TOOL_AFTER = `{"name": "github_create_issue", "description": "Create a new issue in a GitHub repository. Use when the user wants to report a bug or request a feature. Returns the issue URL and number.", "inputSchema": {"type": "object", "properties": {"repo": {"type": "string"}, "title": {"type": "string"}, "body": {"type": "string"}}}}`;
+const DEFAULT_TASK = "Create a new issue to track this bug in our repository";
 
 export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps) {
   // Optimizer state
@@ -63,13 +75,13 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
   const [optimizerLoading, setOptimizerLoading] = useState(false);
   const [expandedRec, setExpandedRec] = useState<number | null>(null);
 
-  // Simulation state
-  const [taskPrompt, setTaskPrompt] = useState("Create a new issue to track this bug");
-  const [toolBefore, setToolBefore] = useState(DEFAULT_TOOL_BEFORE);
-  const [toolAfter, setToolAfter] = useState(DEFAULT_TOOL_AFTER);
-  const [simResult, setSimResult] = useState<any>(null);
-  const [simLoading, setSimLoading] = useState(false);
-  const [simError, setSimError] = useState<string | null>(null);
+  // Discovery benchmark state
+  const [toolJson, setToolJson] = useState(DEFAULT_TOOL);
+  const [taskPrompt, setTaskPrompt] = useState(DEFAULT_TASK);
+  const [numDistractors, setNumDistractors] = useState(15);
+  const [benchResult, setBenchResult] = useState<DiscoveryBenchmarkReport | null>(null);
+  const [benchLoading, setBenchLoading] = useState(false);
+  const [benchError, setBenchError] = useState<string | null>(null);
 
   async function handleOptimize() {
     if (reports.length === 0) return;
@@ -89,38 +101,127 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
     }
   }
 
-  async function runSimulation() {
-    setSimLoading(true);
-    setSimResult(null);
-    setSimError(null);
+  async function runDiscoveryBenchmark() {
+    setBenchLoading(true);
+    setBenchResult(null);
+    setBenchError(null);
     try {
-      let parsedBefore: unknown;
-      let parsedAfter: unknown;
+      let parsedTool: unknown;
       try {
-        parsedBefore = JSON.parse(toolBefore);
-        parsedAfter = JSON.parse(toolAfter);
+        parsedTool = JSON.parse(toolJson);
       } catch {
-        setSimError("Invalid JSON in tool definitions");
-        setSimLoading(false);
+        setBenchError("Invalid JSON in tool definition");
+        setBenchLoading(false);
         return;
       }
-      const result = await apiPost("/api/benchmark/tool-proof", {
+      const result = await apiPost<DiscoveryBenchmarkReport>("/api/benchmark/discovery", {
+        tool: parsedTool,
         task_prompt: taskPrompt,
-        tool_before: parsedBefore,
-        tool_after: parsedAfter,
+        num_distractors: numDistractors,
       });
-      setSimResult(result);
-    } catch (err) {
-      console.error("Simulation failed:", err);
-      setSimError("Simulation request failed");
+      setBenchResult(result);
+    } catch (err: any) {
+      setBenchError(err?.message || "Benchmark failed");
     } finally {
-      setSimLoading(false);
+      setBenchLoading(false);
     }
   }
 
   return (
-    <div className="space-y-8">
-      {/* Section 1: Optimization Recommendations */}
+    <div className="space-y-8 pt-4">
+      {/* Section 1: Discovery Benchmark — the hero feature */}
+      <div className="space-y-4">
+        <div>
+          <p className="text-sm font-medium">Discovery Benchmark</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Test if AI agents can find your tool among {numDistractors} competitors using Claude&apos;s actual tool search mechanism
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">Your Tool Definition (MCP/JSON)</label>
+            <textarea
+              className="w-full h-36 text-[11px] font-mono border rounded-md p-3 bg-muted/30 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+              value={toolJson}
+              onChange={(e) => setToolJson(e.target.value)}
+              spellCheck={false}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground">Task Prompt (what the agent needs to do)</label>
+              <Input
+                value={taskPrompt}
+                onChange={(e) => setTaskPrompt(e.target.value)}
+                className="font-mono text-xs"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground">Distractor Count</label>
+              <Input
+                type="number"
+                value={numDistractors}
+                onChange={(e) => setNumDistractors(parseInt(e.target.value) || 15)}
+                min={5}
+                max={50}
+                className="font-mono text-xs"
+              />
+            </div>
+          </div>
+
+          <Button
+            onClick={runDiscoveryBenchmark}
+            disabled={benchLoading}
+            size="sm"
+            className="text-xs"
+          >
+            {benchLoading ? "Running benchmark (this takes ~30s)..." : "Run Discovery Benchmark"}
+          </Button>
+        </div>
+
+        {benchError && (
+          <div className="border border-destructive/30 rounded-md p-3">
+            <p className="text-xs text-destructive font-mono">{benchError}</p>
+          </div>
+        )}
+
+        {benchResult && (
+          <div className="space-y-4">
+            {/* Before/After comparison */}
+            <div className="grid grid-cols-2 gap-4">
+              <BenchmarkResultCard title="Before Optimization" result={benchResult.before} />
+              {benchResult.after && (
+                <BenchmarkResultCard title="After Optimization" result={benchResult.after} />
+              )}
+            </div>
+
+            {/* Improvement summary */}
+            {benchResult.discovery_improvement && benchResult.discovery_improvement !== "No change" && (
+              <div className="border border-green-500 bg-green-50 dark:bg-green-950/30 rounded-md p-3">
+                <p className="text-xs font-medium text-green-700 dark:text-green-300">
+                  {benchResult.discovery_improvement}
+                </p>
+              </div>
+            )}
+
+            {/* Optimized description */}
+            {benchResult.optimized_description && (
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground">Optimized Description</p>
+                <pre className="text-[11px] font-mono bg-muted/40 p-3 rounded-md border whitespace-pre-wrap">
+                  {benchResult.optimized_description}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <Separator />
+
+      {/* Section 2: Optimization Recommendations */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -131,9 +232,7 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
           </div>
           <div className="flex gap-2">
             {recommendations.length > 0 && (
-              <Button variant="outline" size="sm" onClick={onRescan} className="text-xs">
-                Re-scan
-              </Button>
+              <Button variant="outline" size="sm" onClick={onRescan} className="text-xs">Re-scan</Button>
             )}
             <Button
               size="sm"
@@ -141,11 +240,7 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
               disabled={optimizerLoading || reports.length === 0}
               className="text-xs"
             >
-              {optimizerLoading
-                ? "Analyzing..."
-                : recommendations.length > 0
-                ? "Re-analyze"
-                : "Generate Fixes"}
+              {optimizerLoading ? "Analyzing..." : recommendations.length > 0 ? "Re-analyze" : "Generate Fixes"}
             </Button>
           </div>
         </div>
@@ -175,7 +270,6 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
                   </div>
                   <span className="text-xs text-green-600 font-mono">+{rec.predicted_impact} pts</span>
                 </div>
-
                 {expandedRec === i && (
                   <div className="mt-3 pt-3 border-t space-y-2">
                     {rec.why_it_matters && (
@@ -191,89 +285,78 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
           </div>
         )}
       </div>
+    </div>
+  );
+}
 
-      <Separator />
+function BenchmarkResultCard({ title, result }: { title: string; result: DiscoveryResult }) {
+  return (
+    <div className="border rounded-md p-4 space-y-3">
+      <p className="text-xs font-medium">{title}</p>
 
-      {/* Section 2: Agent Simulation */}
-      <div className="space-y-4">
-        <div>
-          <p className="text-sm font-medium">Live Agent Simulation</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Give Claude two tool definitions — original vs optimized — and see which one it selects
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-xs text-muted-foreground">Task Prompt</label>
-          <Input
-            value={taskPrompt}
-            onChange={(e) => setTaskPrompt(e.target.value)}
-            placeholder="Describe the task for the agent..."
-            className="font-mono text-xs"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">Original Tool</label>
-            <textarea
-              className="w-full h-32 text-[10px] font-mono border rounded-md p-2.5 bg-muted/30 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-              value={toolBefore}
-              onChange={(e) => setToolBefore(e.target.value)}
-              spellCheck={false}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">Optimized Tool</label>
-            <textarea
-              className="w-full h-32 text-[10px] font-mono border rounded-md p-2.5 bg-muted/30 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-              value={toolAfter}
-              onChange={(e) => setToolAfter(e.target.value)}
-              spellCheck={false}
-            />
-          </div>
-        </div>
-
-        <Button
-          onClick={runSimulation}
-          disabled={simLoading}
-          size="sm"
-          className="text-xs"
-        >
-          {simLoading ? "Running..." : "Run Simulation"}
-        </Button>
-
-        {simError && (
-          <div className="border border-red-300 bg-red-50 dark:bg-red-950/30 rounded-md p-3">
-            <p className="text-xs text-red-600 font-mono">{simError}</p>
-          </div>
-        )}
-
-        {simResult && (
-          <div
-            className={`border rounded-md p-4 space-y-2 ${
-              simResult.picked_optimized
-                ? "border-green-500 bg-green-50 dark:bg-green-950/30"
-                : "border-red-500 bg-red-50 dark:bg-red-950/30"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Badge
-                variant={simResult.picked_optimized ? "default" : "destructive"}
-                className="text-[10px] h-4"
-              >
-                {simResult.picked_optimized ? "optimized selected" : "original selected"}
-              </Badge>
-              <span className="text-xs font-mono">{simResult.picked}</span>
-            </div>
-            {simResult.response && (
-              <pre className="text-[10px] font-mono overflow-x-auto whitespace-pre-wrap text-muted-foreground">
-                {JSON.stringify(simResult.response, null, 2)}
-              </pre>
-            )}
-          </div>
-        )}
+      <div className="grid grid-cols-3 gap-2">
+        <StatusBadge label="Discovered" value={result.discovered} />
+        <StatusBadge label="Selected" value={result.selected} />
+        <StatusBadge label="Invoked" value={result.invoked_correctly} />
       </div>
+
+      {result.discovery_rank !== null && (
+        <p className="text-xs font-mono text-muted-foreground">
+          Search rank: #{result.discovery_rank} of {result.competing_tools.length} results
+        </p>
+      )}
+
+      {!result.discovered && (
+        <p className="text-xs text-destructive">
+          Not found among {result.num_distractors} competing tools
+        </p>
+      )}
+
+      {result.competing_tools.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[10px] text-muted-foreground">Search results:</p>
+          <div className="flex flex-wrap gap-1">
+            {result.competing_tools.map((name, i) => (
+              <span
+                key={i}
+                className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                  name === result.target_tool_name
+                    ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {result.raw_response.length > 0 && (
+        <details className="text-[10px]">
+          <summary className="text-muted-foreground cursor-pointer">Raw response</summary>
+          <pre className="font-mono mt-1 p-2 bg-muted/40 rounded whitespace-pre-wrap overflow-x-auto">
+            {result.raw_response.join("\n")}
+          </pre>
+        </details>
+      )}
+    </div>
+  );
+}
+
+function StatusBadge({ label, value }: { label: string; value: boolean }) {
+  return (
+    <div className="text-center">
+      <div
+        className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
+          value
+            ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"
+            : "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300"
+        }`}
+      >
+        {value ? "Y" : "N"}
+      </div>
+      <p className="text-[10px] text-muted-foreground mt-1">{label}</p>
     </div>
   );
 }

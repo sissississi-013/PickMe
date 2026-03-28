@@ -70,6 +70,23 @@ class BenchmarkReport(BaseModel):
     prompt_used: str
     results: list[BenchmarkResult]
 
+class DiscoveryBenchmarkResult(BaseModel):
+    target_tool_name: str
+    task_prompt: str
+    num_distractors: int
+    discovered: bool
+    selected: bool
+    invoked_correctly: bool
+    discovery_rank: int | None = None  # position in search results
+    competing_tools: list[str] = []
+    raw_response: list[str] = []
+
+class DiscoveryBenchmarkReport(BaseModel):
+    before: DiscoveryBenchmarkResult
+    after: DiscoveryBenchmarkResult | None = None
+    optimized_description: str | None = None
+    discovery_improvement: str | None = None
+
 class BotAccessEntry(BaseModel):
     name: str
     operator: str
