@@ -290,7 +290,7 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
             )}
 
             {/* Activity Log */}
-            {simResult.activity_log.length > 0 && (
+            {simResult.activity_log?.length > 0 && (
               <ActivityLog logs={simResult.activity_log} />
             )}
           </div>
