@@ -13,7 +13,7 @@ from api_scout import scan_api
 from mcp_scout import score_mcp_tools
 from optimizer import generate_optimizations
 from benchmark import run_benchmark, run_tool_selection_proof
-from discovery_benchmark import run_discovery_benchmark
+from discovery_benchmark import run_discovery_benchmark, generate_tool_from_description
 from models import DiscoveryBenchmarkReport
 
 app = FastAPI(title="Pick Me", description="Agent discoverability engine")
@@ -113,3 +113,11 @@ class DiscoveryBenchmarkRequest(BaseModel):
 @app.post("/api/benchmark/discovery", response_model=DiscoveryBenchmarkReport)
 async def discovery_benchmark(req: DiscoveryBenchmarkRequest):
     return await run_discovery_benchmark(req.tool, req.task_prompt, req.num_distractors)
+
+
+class GenerateToolRequest(BaseModel):
+    description: str
+
+@app.post("/api/tool/generate")
+async def generate_tool(req: GenerateToolRequest):
+    return await generate_tool_from_description(req.description)

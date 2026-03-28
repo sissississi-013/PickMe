@@ -23,7 +23,7 @@ async def run_discovery_benchmark(
     """Run a full discovery benchmark: before optimization, optimize, then after."""
 
     # Step 1: Generate distractor tools
-    distractors = await _generate_distractors(tool, num_distractors)
+    distractors = await _generate_distractors(tool, task_prompt, num_distractors)
 
     # Step 2: Run benchmark with original tool
     before = await _run_single_benchmark(tool, distractors, task_prompt)
@@ -54,22 +54,49 @@ async def run_discovery_benchmark(
     )
 
 
-async def _generate_distractors(tool: dict, count: int) -> list[dict]:
-    """Use Claude to generate realistic distractor tools in the same category."""
+async def generate_tool_from_description(description: str) -> dict:
+    """Generate an MCP tool definition from a plain-text description, URL, or API docs."""
+    prompt = f"""You are an MCP tool definition generator. Given a description of a tool, API, or service, generate a proper MCP tool definition.
+
+Input: {description}
+
+Generate a JSON object with:
+- "name": service_action_resource pattern (e.g. github_create_issue, stripe_create_payment)
+- "description": Under 100 chars, clear purpose, when to invoke, what it returns
+- "inputSchema": JSON Schema with flat properties, each with type and description
+
+Return ONLY the JSON object, no markdown fencing."""
+
+    msg = await client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": prompt}],
+    )
+
+    raw = msg.content[0].text.strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[1].rsplit("```", 1)[0]
+    return json.loads(raw)
+
+
+async def _generate_distractors(tool: dict, task_prompt: str, count: int) -> list[dict]:
+    """Generate hard, competitive distractor tools that overlap with the target."""
     tool_name = tool.get("name", "unknown_tool")
     tool_desc = tool.get("description", "")
 
-    prompt = f"""Generate {count} realistic MCP tool definitions that are plausible alternatives or competitors to this tool:
+    prompt = f"""Generate {count} realistic MCP tool definitions that COMPETE with this tool for the same task.
 
-Name: {tool_name}
-Description: {tool_desc}
+Target tool: {tool_name} — "{tool_desc}"
+Task the agent will try to do: "{task_prompt}"
 
-Requirements:
-- Each tool should be in a similar domain but serve a slightly different purpose
-- Use realistic naming patterns (service_action_resource)
-- Include inputSchema with realistic properties
-- Make some descriptions good and some mediocre (to simulate real registry conditions)
-- Do NOT duplicate the original tool
+CRITICAL REQUIREMENTS for hard distractors:
+- Tools must be from REAL competing services (GitHub vs GitLab vs Jira vs Linear vs Asana vs Bitbucket etc.)
+- Use proper naming: service_action_resource (e.g. jira_create_ticket, linear_create_issue)
+- Descriptions should be GOOD — well-written, with "Use when..." clauses
+- Some tools should be very similar to the target (same action, different service)
+- Some tools should be tangentially related (same service, different action)
+- Include realistic inputSchema with typed properties
+- These tools must be COMPETITIVE enough that the agent has a real choice to make
 
 Return a JSON array of tool objects, each with "name", "description", and "inputSchema" fields.
 Return ONLY the JSON array, no markdown fencing."""
