@@ -7,6 +7,7 @@ import { MetricsTab } from "@/components/metrics-tab";
 import { SimulationTab } from "@/components/simulation-tab";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { apiPost } from "@/lib/api";
+import Image from "next/image";
 
 export default function Home() {
   const [discovery, setDiscovery] = useState<any>(null);
@@ -37,9 +38,9 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Pick Me</h1>
-          <p className="text-sm text-muted-foreground">AI Agent Discoverability Engine</p>
+        <div className="flex items-center gap-3">
+          <Image src="/logo.png" alt="PickMe" width={140} height={40} priority />
+          <p className="text-sm text-muted-foreground border-l pl-3">AI Agent Discoverability Engine</p>
         </div>
 
         <ScanInput onScan={handleScan} loading={loading} />
