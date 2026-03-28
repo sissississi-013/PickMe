@@ -72,6 +72,7 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
   const [expandedRec, setExpandedRec] = useState<number | null>(null);
 
   // Agent simulation state
+  const [streamingLogs, setStreamingLogs] = useState<LogEntry[]>([]);
   const [toolName, setToolName] = useState("FastAPI");
   const [toolUrl, setToolUrl] = useState("");
   const [toolDesc, setToolDesc] = useState("A modern, fast web framework for building APIs with Python");
@@ -103,19 +104,58 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
     setSimLoading(true);
     setSimResult(null);
     setSimError(null);
+    setStreamingLogs([]);
     try {
       const compList = competitors.trim()
         ? competitors.split(",").map((c) => c.trim()).filter(Boolean)
         : null;
 
-      const result = await apiPost<SimulationResult>("/api/simulate", {
-        target_tool: toolName,
-        target_url: toolUrl || null,
-        target_description: toolDesc,
-        task: simTask,
-        competitors: compList,
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const resp = await fetch(`${API_BASE}/api/simulate/stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          target_tool: toolName,
+          target_url: toolUrl || null,
+          target_description: toolDesc,
+          task: simTask,
+          competitors: compList,
+        }),
       });
-      setSimResult(result);
+
+      if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+
+      const reader = resp.body?.getReader();
+      if (!reader) throw new Error("No response body");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const json = line.slice(6).trim();
+          if (!json) continue;
+
+          try {
+            const msg = JSON.parse(json);
+            if (msg.type === "log") {
+              setStreamingLogs((prev) => [...prev, msg.entry]);
+            } else if (msg.type === "result") {
+              setSimResult(msg.data);
+            }
+          } catch {
+            // ignore parse errors
+          }
+        }
+      }
     } catch (err: any) {
       setSimError(err?.message || "Simulation failed");
     } finally {
@@ -257,6 +297,11 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
           {simLoading ? "Running simulation (~30s)..." : "Run Agent Simulation"}
         </Button>
 
+        {/* Live streaming log — shows DURING simulation */}
+        {(simLoading || streamingLogs.length > 0) && (
+          <ActivityLog logs={streamingLogs} live={simLoading} />
+        )}
+
         {simError && (
           <div className="border border-destructive/30 rounded-md p-3">
             <p className="text-sm text-destructive">{simError}</p>
@@ -290,10 +335,7 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
               </div>
             )}
 
-            {/* Activity Log */}
-            {simResult.activity_log?.length > 0 && (
-              <ActivityLog logs={simResult.activity_log} />
-            )}
+            {/* Activity log is shown above in real-time */}
           </div>
         )}
       </div>
@@ -387,7 +429,7 @@ const TYPE_COLORS: Record<string, string> = {
   info: "text-zinc-500",
 };
 
-function ActivityLog({ logs }: { logs: LogEntry[] }) {
+function ActivityLog({ logs, live }: { logs: LogEntry[]; live?: boolean }) {
   const startTime = logs.length > 0 ? logs[0].timestamp : 0;
 
   return (
@@ -423,6 +465,14 @@ function ActivityLog({ logs }: { logs: LogEntry[] }) {
             </div>
           );
         })}
+        {live && (
+          <div className="flex gap-1.5 mt-1">
+            <span className="text-zinc-700 w-12 flex-shrink-0 text-right"></span>
+            <span className="w-6 flex-shrink-0"></span>
+            <span className="w-3 flex-shrink-0"></span>
+            <span className="text-green-400 animate-pulse">_</span>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -98,17 +98,32 @@ async def run_agent_simulation(
     task: str,
     competitors: list[str] | None = None,
 ) -> SimulationResult:
+    return await _run_simulation_impl(
+        target_tool, target_url, target_description, optimized_description,
+        task, competitors, None,
+    )
+
+
+async def _run_simulation_impl(
+    target_tool: str,
+    target_url: str | None,
+    target_description: str,
+    optimized_description: str | None,
+    task: str,
+    competitors: list[str] | None,
+    q: asyncio.Queue | None,
+) -> SimulationResult:
     logs: list[LogEntry] = []
-    _log(logs, "system", "info", f"Starting simulation for '{target_tool}'", f"Task: {task}")
+    _log(logs, "system", "info", f"Starting simulation for '{target_tool}'", f"Task: {task}", q)
 
     # Optimize description if not provided
     if not optimized_description:
-        _log(logs, "system", "info", "Generating optimized description...")
+        _log(logs, "system", "info", "Generating optimized description...", queue=q)
         optimized_description = await _optimize_description(target_tool, target_description, task)
-        _log(logs, "system", "info", "Optimized description ready", optimized_description)
+        _log(logs, "system", "info", "Optimized description ready", optimized_description, q)
 
     # Run both agents in parallel
-    _log(logs, "system", "info", "Launching Agent A (original) and Agent B (optimized) in parallel...")
+    _log(logs, "system", "info", "Launching Agent A (original) and Agent B (optimized) in parallel...", queue=q)
 
     agent_a, agent_b = await asyncio.gather(
         _run_agentic_session(
@@ -117,6 +132,7 @@ async def run_agent_simulation(
             target_description=target_description,
             target_url=target_url,
             label="agent_a",
+            log_queue=q,
         ),
         _run_agentic_session(
             task=task,
@@ -124,6 +140,7 @@ async def run_agent_simulation(
             target_description=optimized_description,
             target_url=target_url,
             label="agent_b",
+            log_queue=q,
         ),
     )
 
@@ -136,8 +153,8 @@ async def run_agent_simulation(
     all_session_logs.sort(key=lambda e: e.timestamp)
     logs.extend(all_session_logs)
 
-    _log(logs, "agent_a", "decision", f"Agent A picked: {agent_a.picked_tool}")
-    _log(logs, "agent_b", "decision", f"Agent B picked: {agent_b.picked_tool}")
+    _log(logs, "agent_a", "decision", f"Agent A picked: {agent_a.picked_tool}", queue=q)
+    _log(logs, "agent_b", "decision", f"Agent B picked: {agent_b.picked_tool}", queue=q)
 
     # Compare
     target_lower = target_tool.lower()
@@ -154,7 +171,7 @@ async def run_agent_simulation(
     else:
         summary = f"Unexpected: {target_tool} was picked before but not after."
 
-    _log(logs, "system", "info", summary)
+    _log(logs, "system", "info", summary, queue=q)
 
     return SimulationResult(
         task=task,
@@ -174,9 +191,11 @@ async def _run_agentic_session(
     target_description: str,
     target_url: str | None,
     label: str,
+    log_queue: asyncio.Queue | None = None,
 ) -> AgentDecision:
     """Run a multi-turn agentic session where the agent uses tools to research and decide."""
     session_log: list[LogEntry] = []
+    q = log_queue
     agent_name = "Agent A (original)" if label == "agent_a" else "Agent B (optimized)"
 
     system = f"""You are a developer agent evaluating tools for a project. You have access to web search and documentation reading tools.
@@ -193,7 +212,7 @@ Be thorough — search, read docs, then decide. Always use make_recommendation a
 
     messages = [{"role": "user", "content": f"I need to {task}. Research the best tools/frameworks for this and make a recommendation. Start by searching for options."}]
 
-    _log(session_log, label, "thinking", f"{agent_name} starting session...",
+    _lq(session_log, q, label, "thinking", f"{agent_name} starting session...",
          f"System: {system[:150]}...")
 
     max_turns = 8
@@ -212,7 +231,7 @@ Be thorough — search, read docs, then decide. Always use make_recommendation a
         assistant_content = []
         for block in msg.content:
             if hasattr(block, "text") and block.text:
-                _log(session_log, label, "thinking", block.text)
+                _lq(session_log, q, label, "thinking", block.text)
                 assistant_content.append({"type": "text", "text": block.text})
 
             elif block.type == "tool_use":
@@ -227,7 +246,7 @@ Be thorough — search, read docs, then decide. Always use make_recommendation a
                 })
 
                 if tool_name == "make_recommendation":
-                    _log(session_log, label, "decision",
+                    _lq(session_log, q, label, "decision",
                          f"Recommendation: {tool_input.get('picked_tool', '?')}",
                          json.dumps(tool_input, indent=2))
                     decision = AgentDecision(
@@ -242,9 +261,9 @@ Be thorough — search, read docs, then decide. Always use make_recommendation a
 
                 elif tool_name == "web_search":
                     query = tool_input.get("query", "")
-                    _log(session_log, label, "tool_call", f"web_search(\"{query}\")")
+                    _lq(session_log, q, label, "tool_call", f"web_search(\"{query}\")")
                     result = await _handle_web_search(query)
-                    _log(session_log, label, "tool_result", f"Search returned {len(result)} chars",
+                    _lq(session_log, q, label, "tool_result", f"Search returned {len(result)} chars",
                          result[:300] + "..." if len(result) > 300 else result)
 
                     messages.append({"role": "assistant", "content": assistant_content})
@@ -256,10 +275,10 @@ Be thorough — search, read docs, then decide. Always use make_recommendation a
                 elif tool_name == "read_documentation":
                     t_name = tool_input.get("tool_name", "")
                     t_url = tool_input.get("url")
-                    _log(session_log, label, "tool_call",
+                    _lq(session_log, q, label, "tool_call",
                          f"read_documentation(\"{t_name}\"" + (f", url=\"{t_url}\")" if t_url else ")"))
                     result = await _fetch_docs(t_name, t_url)
-                    _log(session_log, label, "tool_result",
+                    _lq(session_log, q, label, "tool_result",
                          f"Docs for {t_name}: {len(result)} chars",
                          result[:300] + "..." if len(result) > 300 else result)
 
@@ -277,7 +296,7 @@ Be thorough — search, read docs, then decide. Always use make_recommendation a
 
     # If no explicit decision was made, parse the last text response
     if decision is None:
-        _log(session_log, label, "thinking", "Session ended without explicit recommendation, inferring from conversation...")
+        _lq(session_log, q, label, "thinking", "Session ended without explicit recommendation, inferring from conversation...")
         decision = AgentDecision(
             agent_label=label,
             picked_tool="undecided",
@@ -410,5 +429,29 @@ def _extract_text(html: str) -> str:
     return text
 
 
-def _log(logs: list[LogEntry], actor: str, type: str, content: str, data: str | None = None):
-    logs.append(LogEntry(timestamp=time.time(), actor=actor, type=type, content=content, data=data))
+def _lq(logs: list[LogEntry], queue: asyncio.Queue | None, actor: str, type: str, content: str, data: str | None = None):
+    """Log with queue — convenience wrapper."""
+    _log(logs, actor, type, content, data, queue)
+
+
+def _log(logs: list[LogEntry], actor: str, type: str, content: str, data: str | None = None, queue: asyncio.Queue | None = None):
+    entry = LogEntry(timestamp=time.time(), actor=actor, type=type, content=content, data=data)
+    logs.append(entry)
+    if queue:
+        queue.put_nowait(entry)
+
+
+async def run_agent_simulation_streaming(
+    target_tool: str,
+    target_url: str | None,
+    target_description: str,
+    optimized_description: str | None,
+    task: str,
+    competitors: list[str] | None = None,
+    log_queue: asyncio.Queue | None = None,
+) -> SimulationResult:
+    """Same as run_agent_simulation but pushes logs to a queue for SSE streaming."""
+    return await _run_simulation_impl(
+        target_tool, target_url, target_description, optimized_description,
+        task, competitors, log_queue,
+    )

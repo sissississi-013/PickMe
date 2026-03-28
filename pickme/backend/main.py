@@ -1,6 +1,8 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+import asyncio
 import tempfile
 import os
 
@@ -14,7 +16,7 @@ from mcp_scout import score_mcp_tools
 from optimizer import generate_optimizations
 from benchmark import run_benchmark, run_tool_selection_proof
 from discovery_benchmark import run_discovery_benchmark, generate_tool_from_description
-from agent_simulation import run_agent_simulation, SimulationResult
+from agent_simulation import run_agent_simulation, run_agent_simulation_streaming, SimulationResult
 from models import DiscoveryBenchmarkReport
 
 app = FastAPI(title="Pick Me", description="Agent discoverability engine")
@@ -144,3 +146,45 @@ async def simulate(req: SimulationRequest):
         task=req.task,
         competitors=req.competitors,
     )
+
+
+@app.post("/api/simulate/stream")
+async def simulate_stream(req: SimulationRequest):
+    """SSE endpoint that streams log entries in real-time, then sends the final result."""
+    log_queue: asyncio.Queue = asyncio.Queue()
+
+    async def generate():
+        import json as _json
+
+        # Start simulation in background
+        sim_task = asyncio.create_task(
+            run_agent_simulation_streaming(
+                target_tool=req.target_tool,
+                target_url=req.target_url,
+                target_description=req.target_description,
+                optimized_description=req.optimized_description,
+                task=req.task,
+                competitors=req.competitors,
+                log_queue=log_queue,
+            )
+        )
+
+        # Stream log entries as they arrive
+        while not sim_task.done():
+            try:
+                entry = await asyncio.wait_for(log_queue.get(), timeout=0.5)
+                yield f"data: {_json.dumps({'type': 'log', 'entry': entry.model_dump()})}\n\n"
+            except asyncio.TimeoutError:
+                continue
+
+        # Drain remaining entries
+        while not log_queue.empty():
+            entry = log_queue.get_nowait()
+            yield f"data: {_json.dumps({'type': 'log', 'entry': entry.model_dump()})}\n\n"
+
+        # Send final result
+        result = await sim_task
+        yield f"data: {_json.dumps({'type': 'result', 'data': result.model_dump()})}\n\n"
+        yield "data: {\"type\": \"done\"}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
