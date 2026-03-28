@@ -32,6 +32,13 @@ interface AgentDecision {
   raw_output: string;
 }
 
+interface LogEntry {
+  timestamp: number;
+  step: string;
+  detail: string;
+  data: string | null;
+}
+
 interface SimulationResult {
   task: string;
   target_tool: string;
@@ -39,6 +46,8 @@ interface SimulationResult {
   after: AgentDecision;
   optimization_effective: boolean;
   summary: string;
+  optimized_description: string;
+  activity_log: LogEntry[];
 }
 
 interface SimulationTabProps {
@@ -269,6 +278,21 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
               <AgentCard decision={simResult.before} targetTool={simResult.target_tool} title="Agent A — Original" />
               <AgentCard decision={simResult.after} targetTool={simResult.target_tool} title="Agent B — Optimized" />
             </div>
+
+            {/* Optimized description */}
+            {simResult.optimized_description && (
+              <div className="space-y-1.5">
+                <p className="text-sm font-medium">Optimized Description</p>
+                <pre className="text-sm font-mono bg-muted/40 p-3 rounded-md border whitespace-pre-wrap">
+                  {simResult.optimized_description}
+                </pre>
+              </div>
+            )}
+
+            {/* Activity Log */}
+            {simResult.activity_log.length > 0 && (
+              <ActivityLog logs={simResult.activity_log} />
+            )}
           </div>
         )}
       </div>
@@ -321,6 +345,62 @@ function AgentCard({ decision, targetTool, title }: { decision: AgentDecision; t
       <div className="flex items-center gap-2">
         <p className="text-xs text-muted-foreground">Confidence:</p>
         <Badge variant="outline" className="text-xs">{decision.confidence}</Badge>
+      </div>
+
+      {/* Show the actual prompt sent to Claude */}
+      <details className="text-xs">
+        <summary className="text-muted-foreground cursor-pointer">View agent prompt</summary>
+        <div className="mt-2 space-y-2">
+          <div>
+            <p className="text-muted-foreground font-medium">System prompt:</p>
+            <pre className="font-mono mt-1 p-2 bg-muted/40 rounded whitespace-pre-wrap overflow-x-auto text-xs">
+              {decision.raw_output ? decision.raw_output : "N/A"}
+            </pre>
+          </div>
+        </div>
+      </details>
+    </div>
+  );
+}
+
+const STEP_COLORS: Record<string, string> = {
+  init: "text-blue-500",
+  fetch_docs: "text-cyan-500",
+  competitors: "text-purple-500",
+  optimize: "text-yellow-500",
+  agent_a: "text-orange-500",
+  agent_b: "text-green-500",
+  result: "text-white font-medium",
+};
+
+function ActivityLog({ logs }: { logs: LogEntry[] }) {
+  const startTime = logs.length > 0 ? logs[0].timestamp : 0;
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-sm font-medium">Activity Log</p>
+      <div className="bg-zinc-950 text-zinc-300 rounded-md p-4 font-mono text-xs max-h-96 overflow-y-auto space-y-0.5">
+        {logs.map((log, i) => {
+          const elapsed = ((log.timestamp - startTime) * 1000).toFixed(0);
+          const color = STEP_COLORS[log.step] || "text-zinc-400";
+          return (
+            <div key={i}>
+              <div className="flex gap-2">
+                <span className="text-zinc-600 w-16 flex-shrink-0 text-right">{elapsed}ms</span>
+                <span className={`w-24 flex-shrink-0 ${color}`}>[{log.step}]</span>
+                <span className="text-zinc-300">{log.detail}</span>
+              </div>
+              {log.data && (
+                <details className="ml-[10.5rem]">
+                  <summary className="text-zinc-600 cursor-pointer hover:text-zinc-400">data</summary>
+                  <pre className="text-zinc-500 whitespace-pre-wrap mt-0.5 pl-2 border-l border-zinc-800">
+                    {log.data}
+                  </pre>
+                </details>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
