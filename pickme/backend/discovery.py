@@ -305,52 +305,74 @@ def _html_to_text(html: str) -> str:
 
 
 def _html_to_markdown(html: str) -> str:
-    """Convert HTML to simplified markdown — what agents actually see.
-    Uses the plain text extraction as a fallback if structural conversion yields little."""
-    # Remove only scripts and styles (keep nav/header/footer — agents see those too)
-    md = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL)
+    """Convert HTML to clean markdown — what agents actually see."""
+    md = html
+
+    # Remove non-content elements entirely
+    md = re.sub(r"<script[^>]*>.*?</script>", "", md, flags=re.DOTALL)
     md = re.sub(r"<style[^>]*>.*?</style>", "", md, flags=re.DOTALL)
     md = re.sub(r"<!--.*?-->", "", md, flags=re.DOTALL)
+    md = re.sub(r"<svg[^>]*>.*?</svg>", "", md, flags=re.DOTALL)
+    md = re.sub(r"<noscript[^>]*>.*?</noscript>", "", md, flags=re.DOTALL)
+    md = re.sub(r"<img[^>]*/?>", "", md)  # images are invisible to text agents
 
     # Convert headings
-    md = re.sub(r"<h1[^>]*>(.*?)</h1>", r"\n# \1\n", md, flags=re.DOTALL | re.IGNORECASE)
-    md = re.sub(r"<h2[^>]*>(.*?)</h2>", r"\n## \1\n", md, flags=re.DOTALL | re.IGNORECASE)
-    md = re.sub(r"<h3[^>]*>(.*?)</h3>", r"\n### \1\n", md, flags=re.DOTALL | re.IGNORECASE)
-    md = re.sub(r"<h[4-6][^>]*>(.*?)</h[4-6]>", r"\n#### \1\n", md, flags=re.DOTALL | re.IGNORECASE)
+    for i, tag in enumerate(["h1", "h2", "h3", "h4", "h5", "h6"], 1):
+        prefix = "#" * i
+        md = re.sub(rf"<{tag}[^>]*>(.*?)</{tag}>", rf"\n{prefix} \1\n", md, flags=re.DOTALL | re.IGNORECASE)
 
-    # Convert links
-    md = re.sub(r'<a[^>]*href="([^"]*)"[^>]*>(.*?)</a>', r"[\2](\1)", md, flags=re.DOTALL)
+    # Convert code blocks before inline code
+    md = re.sub(r"<pre[^>]*>(.*?)</pre>", r"\n```\n\1\n```\n", md, flags=re.DOTALL)
+    md = re.sub(r"<code[^>]*>(.*?)</code>", r"`\1`", md, flags=re.DOTALL)
+
+    # Convert links — extract text and href, clean whitespace inside
+    def _clean_link(m):
+        href = m.group(1)
+        text = re.sub(r"\s+", " ", m.group(2)).strip()
+        # Strip remaining tags from link text
+        text = re.sub(r"<[^>]+>", "", text).strip()
+        if not text or text.lower() in ("", "sponsor"):
+            return ""
+        return f"[{text}]({href})"
+    md = re.sub(r'<a[^>]*href="([^"]*)"[^>]*>(.*?)</a>', _clean_link, md, flags=re.DOTALL)
 
     # Convert emphasis
-    md = re.sub(r"<strong[^>]*>(.*?)</strong>", r"**\1**", md, flags=re.DOTALL)
-    md = re.sub(r"<b[^>]*>(.*?)</b>", r"**\1**", md, flags=re.DOTALL)
+    md = re.sub(r"<(?:strong|b)[^>]*>(.*?)</(?:strong|b)>", r"**\1**", md, flags=re.DOTALL)
     md = re.sub(r"<em[^>]*>(.*?)</em>", r"*\1*", md, flags=re.DOTALL)
-    md = re.sub(r"<code[^>]*>(.*?)</code>", r"`\1`", md, flags=re.DOTALL)
-    md = re.sub(r"<pre[^>]*>(.*?)</pre>", r"\n```\n\1\n```\n", md, flags=re.DOTALL)
 
     # Convert lists
     md = re.sub(r"<li[^>]*>(.*?)</li>", r"\n- \1", md, flags=re.DOTALL)
 
-    # Convert paragraphs, divs, breaks
+    # Block elements → newlines
     md = re.sub(r"<br[^>]*/?>", "\n", md)
     md = re.sub(r"<p[^>]*>(.*?)</p>", r"\n\1\n", md, flags=re.DOTALL)
-    md = re.sub(r"<div[^>]*>", "\n", md)
-    md = re.sub(r"</div>", "\n", md)
+    md = re.sub(r"<(?:div|section|article|main|aside|blockquote)[^>]*>", "\n", md)
+    md = re.sub(r"</(?:div|section|article|main|aside|blockquote)>", "\n", md)
 
-    # Strip remaining tags
+    # Strip ALL remaining HTML tags
     md = re.sub(r"<[^>]+>", "", md)
 
-    # Decode common entities
+    # Decode entities
     md = md.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
     md = md.replace("&quot;", '"').replace("&#39;", "'").replace("&nbsp;", " ")
 
-    # Clean up whitespace
-    md = re.sub(r"\n{3,}", "\n\n", md)
-    md = re.sub(r"[ \t]+", " ", md)
-    lines = [line.strip() for line in md.split("\n")]
-    md = "\n".join(line for line in lines if line)
+    # Critical cleanup: strip each line, remove empty lines, collapse whitespace
+    lines = []
+    for line in md.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        # Skip lines that are just whitespace artifacts or broken markdown
+        if len(line) <= 2 and line.strip("*-#[] ") == "":
+            continue
+        lines.append(line)
 
-    # If result is too short, fall back to plain text extraction
+    md = "\n".join(lines)
+
+    # Collapse multiple blank-ish areas
+    md = re.sub(r"\n{3,}", "\n\n", md)
+
+    # If still too short, fall back to plain text
     if len(md) < 100:
         md = _html_to_text(html)
 
