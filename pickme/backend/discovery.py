@@ -305,41 +305,54 @@ def _html_to_text(html: str) -> str:
 
 
 def _html_to_markdown(html: str) -> str:
-    """Convert HTML to a simplified markdown that represents what agents see."""
-    # Remove scripts, styles, nav, footer
+    """Convert HTML to simplified markdown — what agents actually see.
+    Uses the plain text extraction as a fallback if structural conversion yields little."""
+    # Remove only scripts and styles (keep nav/header/footer — agents see those too)
     md = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL)
     md = re.sub(r"<style[^>]*>.*?</style>", "", md, flags=re.DOTALL)
-    md = re.sub(r"<nav[^>]*>.*?</nav>", "", md, flags=re.DOTALL)
-    md = re.sub(r"<footer[^>]*>.*?</footer>", "", md, flags=re.DOTALL)
-    md = re.sub(r"<header[^>]*>.*?</header>", "", md, flags=re.DOTALL)
+    md = re.sub(r"<!--.*?-->", "", md, flags=re.DOTALL)
 
     # Convert headings
     md = re.sub(r"<h1[^>]*>(.*?)</h1>", r"\n# \1\n", md, flags=re.DOTALL | re.IGNORECASE)
     md = re.sub(r"<h2[^>]*>(.*?)</h2>", r"\n## \1\n", md, flags=re.DOTALL | re.IGNORECASE)
     md = re.sub(r"<h3[^>]*>(.*?)</h3>", r"\n### \1\n", md, flags=re.DOTALL | re.IGNORECASE)
+    md = re.sub(r"<h[4-6][^>]*>(.*?)</h[4-6]>", r"\n#### \1\n", md, flags=re.DOTALL | re.IGNORECASE)
 
     # Convert links
     md = re.sub(r'<a[^>]*href="([^"]*)"[^>]*>(.*?)</a>', r"[\2](\1)", md, flags=re.DOTALL)
 
     # Convert emphasis
     md = re.sub(r"<strong[^>]*>(.*?)</strong>", r"**\1**", md, flags=re.DOTALL)
+    md = re.sub(r"<b[^>]*>(.*?)</b>", r"**\1**", md, flags=re.DOTALL)
     md = re.sub(r"<em[^>]*>(.*?)</em>", r"*\1*", md, flags=re.DOTALL)
     md = re.sub(r"<code[^>]*>(.*?)</code>", r"`\1`", md, flags=re.DOTALL)
+    md = re.sub(r"<pre[^>]*>(.*?)</pre>", r"\n```\n\1\n```\n", md, flags=re.DOTALL)
 
     # Convert lists
-    md = re.sub(r"<li[^>]*>(.*?)</li>", r"- \1", md, flags=re.DOTALL)
+    md = re.sub(r"<li[^>]*>(.*?)</li>", r"\n- \1", md, flags=re.DOTALL)
 
-    # Convert paragraphs and breaks
+    # Convert paragraphs, divs, breaks
     md = re.sub(r"<br[^>]*/?>", "\n", md)
     md = re.sub(r"<p[^>]*>(.*?)</p>", r"\n\1\n", md, flags=re.DOTALL)
+    md = re.sub(r"<div[^>]*>", "\n", md)
+    md = re.sub(r"</div>", "\n", md)
 
     # Strip remaining tags
     md = re.sub(r"<[^>]+>", "", md)
 
+    # Decode common entities
+    md = md.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+    md = md.replace("&quot;", '"').replace("&#39;", "'").replace("&nbsp;", " ")
+
     # Clean up whitespace
     md = re.sub(r"\n{3,}", "\n\n", md)
     md = re.sub(r"[ \t]+", " ", md)
-    md = md.strip()
+    lines = [line.strip() for line in md.split("\n")]
+    md = "\n".join(line for line in lines if line)
+
+    # If result is too short, fall back to plain text extraction
+    if len(md) < 100:
+        md = _html_to_text(html)
 
     return md
 
