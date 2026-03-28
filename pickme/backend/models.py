@@ -94,6 +94,13 @@ class BotAccessEntry(BaseModel):
     allowed: bool
     market_share: float  # for weighting in visibility calc
 
+class SignalFinding(BaseModel):
+    name: str
+    status: str  # "found" | "missing" | "partial"
+    value: str
+    consequence: str
+    impact: str  # "critical" | "high" | "medium" | "low"
+
 class DiscoveryReport(BaseModel):
     url: str
     robots_txt_found: bool
@@ -111,3 +118,8 @@ class DiscoveryReport(BaseModel):
     ai_visibility_pct: int
     page_title: str | None = None
     word_count: int = 0
+    # New: deeper analysis
+    markdown_preview: str | None = None  # what agents actually see
+    markdown_token_count: int = 0
+    content_quality: list[SignalFinding] = []
+    signals: list[SignalFinding] = []
