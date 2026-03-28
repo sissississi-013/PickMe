@@ -23,23 +23,22 @@ interface Recommendation {
   predicted_impact: number;
 }
 
-interface DiscoveryResult {
-  target_tool_name: string;
-  task_prompt: string;
-  num_distractors: number;
-  discovered: boolean;
-  selected: boolean;
-  invoked_correctly: boolean;
-  discovery_rank: number | null;
-  competing_tools: string[];
-  raw_response: string[];
+interface AgentDecision {
+  agent_label: string;
+  picked_tool: string;
+  reasoning: string;
+  tools_evaluated: string[];
+  confidence: string;
+  raw_output: string;
 }
 
-interface DiscoveryBenchmarkReport {
-  before: DiscoveryResult;
-  after: DiscoveryResult | null;
-  optimized_description: string | null;
-  discovery_improvement: string | null;
+interface SimulationResult {
+  task: string;
+  target_tool: string;
+  before: AgentDecision;
+  after: AgentDecision;
+  optimization_effective: boolean;
+  summary: string;
 }
 
 interface SimulationTabProps {
@@ -55,40 +54,22 @@ const severityVariant: Record<string, "destructive" | "default" | "secondary" | 
   low: "outline",
 };
 
-const DEFAULT_TASK = "Create a new issue titled 'Login button not working' in the acme/webapp repository";
-
 export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps) {
-  // Input mode
-  const [inputMode, setInputMode] = useState<"json" | "describe">("describe");
-  const [toolDescription, setToolDescription] = useState("A tool that creates GitHub issues for bug tracking");
-  const [toolJson, setToolJson] = useState("");
-  const [generatingTool, setGeneratingTool] = useState(false);
-
   // Optimizer state
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [totalGain, setTotalGain] = useState(0);
   const [optimizerLoading, setOptimizerLoading] = useState(false);
   const [expandedRec, setExpandedRec] = useState<number | null>(null);
 
-  // Benchmark state
-  const [taskPrompt, setTaskPrompt] = useState(DEFAULT_TASK);
-  const [numDistractors, setNumDistractors] = useState(15);
-  const [benchResult, setBenchResult] = useState<DiscoveryBenchmarkReport | null>(null);
-  const [benchLoading, setBenchLoading] = useState(false);
-  const [benchError, setBenchError] = useState<string | null>(null);
-
-  async function generateToolFromDescription() {
-    setGeneratingTool(true);
-    try {
-      const result = await apiPost<any>("/api/tool/generate", { description: toolDescription });
-      setToolJson(JSON.stringify(result, null, 2));
-      setInputMode("json");
-    } catch (err: any) {
-      console.error("Failed to generate tool:", err);
-    } finally {
-      setGeneratingTool(false);
-    }
-  }
+  // Agent simulation state
+  const [toolName, setToolName] = useState("FastAPI");
+  const [toolUrl, setToolUrl] = useState("");
+  const [toolDesc, setToolDesc] = useState("A modern, fast web framework for building APIs with Python");
+  const [simTask, setSimTask] = useState("Build a REST API backend for a task management app");
+  const [competitors, setCompetitors] = useState("");
+  const [simResult, setSimResult] = useState<SimulationResult | null>(null);
+  const [simLoading, setSimLoading] = useState(false);
+  const [simError, setSimError] = useState<string | null>(null);
 
   async function handleOptimize() {
     if (reports.length === 0) return;
@@ -108,41 +89,39 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
     }
   }
 
-  async function runDiscoveryBenchmark() {
-    setBenchLoading(true);
-    setBenchResult(null);
-    setBenchError(null);
+  async function runSimulation() {
+    setSimLoading(true);
+    setSimResult(null);
+    setSimError(null);
     try {
-      let parsedTool: unknown;
-      try {
-        parsedTool = JSON.parse(toolJson);
-      } catch {
-        setBenchError("Invalid JSON in tool definition. Use 'Describe' mode to generate one.");
-        setBenchLoading(false);
-        return;
-      }
-      const result = await apiPost<DiscoveryBenchmarkReport>("/api/benchmark/discovery", {
-        tool: parsedTool,
-        task_prompt: taskPrompt,
-        num_distractors: numDistractors,
+      const compList = competitors.trim()
+        ? competitors.split(",").map((c) => c.trim()).filter(Boolean)
+        : null;
+
+      const result = await apiPost<SimulationResult>("/api/simulate", {
+        target_tool: toolName,
+        target_url: toolUrl || null,
+        target_description: toolDesc,
+        task: simTask,
+        competitors: compList,
       });
-      setBenchResult(result);
+      setSimResult(result);
     } catch (err: any) {
-      setBenchError(err?.message || "Benchmark failed");
+      setSimError(err?.message || "Simulation failed");
     } finally {
-      setBenchLoading(false);
+      setSimLoading(false);
     }
   }
 
   return (
     <div className="space-y-8 pt-4">
 
-      {/* Section 1: Optimization Recommendations (from URL scan) */}
+      {/* Section 1: Optimization Recommendations */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <p className="font-medium">Optimization Recommendations</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-sm text-muted-foreground mt-0.5">
               Scan a URL first, then generate research-backed fixes
             </p>
             {totalGain > 0 && (
@@ -202,125 +181,94 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
 
       <Separator />
 
-      {/* Section 2: Discovery Benchmark */}
+      {/* Section 2: Agent Simulation */}
       <div className="space-y-4">
         <div>
-          <p className="font-medium">Discovery Benchmark</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Test if AI agents can find your tool among {numDistractors} real competitors using Claude&apos;s production tool search
+          <p className="font-medium">Agent Simulation</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Two parallel agents evaluate your tool against real competitors. One sees the original description, the other sees an optimized version.
           </p>
         </div>
 
-        {/* Input mode toggle */}
-        <div className="flex gap-2">
-          <Button
-            variant={inputMode === "describe" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setInputMode("describe")}
-          >
-            Describe your tool
-          </Button>
-          <Button
-            variant={inputMode === "json" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setInputMode("json")}
-          >
-            Paste MCP JSON
-          </Button>
-        </div>
-
-        {inputMode === "describe" ? (
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <label className="text-sm text-muted-foreground">Describe your tool, API, or service</label>
-              <textarea
-                className="w-full h-24 text-sm border rounded-md p-3 bg-muted/30 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-                value={toolDescription}
-                onChange={(e) => setToolDescription(e.target.value)}
-                placeholder="e.g. A Stripe API endpoint for creating payment intents, or a GitHub MCP tool for managing issues..."
-              />
-            </div>
-            <Button
-              size="sm"
-              onClick={generateToolFromDescription}
-              disabled={generatingTool || !toolDescription.trim()}
-            >
-              {generatingTool ? "Generating..." : "Generate MCP Definition"}
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-1.5">
-            <label className="text-sm text-muted-foreground">MCP Tool Definition (JSON)</label>
-            <textarea
-              className="w-full h-36 text-sm font-mono border rounded-md p-3 bg-muted/30 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-              value={toolJson}
-              onChange={(e) => setToolJson(e.target.value)}
-              spellCheck={false}
-              placeholder='{"name": "...", "description": "...", "inputSchema": {...}}'
-            />
-          </div>
-        )}
-
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <label className="text-sm text-muted-foreground">Task prompt for the agent</label>
+            <label className="text-sm text-muted-foreground">Tool / Framework / API name</label>
             <Input
-              value={taskPrompt}
-              onChange={(e) => setTaskPrompt(e.target.value)}
+              value={toolName}
+              onChange={(e) => setToolName(e.target.value)}
+              placeholder="e.g. FastAPI, Stripe, React"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm text-muted-foreground">Documentation URL (optional)</label>
+            <Input
+              value={toolUrl}
+              onChange={(e) => setToolUrl(e.target.value)}
+              placeholder="https://github.com/..."
               className="font-mono text-sm"
             />
           </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-sm text-muted-foreground">Current description of your tool</label>
+          <textarea
+            className="w-full h-20 text-sm border rounded-md p-3 bg-muted/30 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+            value={toolDesc}
+            onChange={(e) => setToolDesc(e.target.value)}
+            placeholder="Describe what your tool does..."
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <label className="text-sm text-muted-foreground">Competing tools</label>
+            <label className="text-sm text-muted-foreground">Task for the agent</label>
             <Input
-              type="number"
-              value={numDistractors}
-              onChange={(e) => setNumDistractors(parseInt(e.target.value) || 15)}
-              min={5}
-              max={50}
+              value={simTask}
+              onChange={(e) => setSimTask(e.target.value)}
+              placeholder="Build a REST API backend..."
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm text-muted-foreground">Competitors (optional, comma-separated)</label>
+            <Input
+              value={competitors}
+              onChange={(e) => setCompetitors(e.target.value)}
+              placeholder="Express, Django, Flask, Spring Boot"
               className="font-mono text-sm"
             />
           </div>
         </div>
 
         <Button
-          onClick={runDiscoveryBenchmark}
-          disabled={benchLoading || !toolJson.trim()}
+          onClick={runSimulation}
+          disabled={simLoading || !toolName.trim() || !simTask.trim()}
         >
-          {benchLoading ? "Running benchmark (~30s)..." : "Run Discovery Benchmark"}
+          {simLoading ? "Running simulation (~30s)..." : "Run Agent Simulation"}
         </Button>
 
-        {benchError && (
+        {simError && (
           <div className="border border-destructive/30 rounded-md p-3">
-            <p className="text-sm text-destructive font-mono">{benchError}</p>
+            <p className="text-sm text-destructive">{simError}</p>
           </div>
         )}
 
-        {benchResult && (
+        {simResult && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <BenchmarkResultCard title="Before Optimization" result={benchResult.before} />
-              {benchResult.after && (
-                <BenchmarkResultCard title="After Optimization" result={benchResult.after} />
-              )}
+            {/* Summary */}
+            <div className={`border rounded-md p-4 ${
+              simResult.optimization_effective
+                ? "border-green-500 bg-green-50 dark:bg-green-950/30"
+                : "border-border"
+            }`}>
+              <p className="text-sm font-medium">{simResult.summary}</p>
             </div>
 
-            {benchResult.discovery_improvement && benchResult.discovery_improvement !== "No change" && (
-              <div className="border border-green-500 bg-green-50 dark:bg-green-950/30 rounded-md p-3">
-                <p className="text-sm text-green-700 dark:text-green-300">
-                  {benchResult.discovery_improvement}
-                </p>
-              </div>
-            )}
-
-            {benchResult.optimized_description && (
-              <div className="space-y-1.5">
-                <p className="text-sm text-muted-foreground">Optimized Description</p>
-                <pre className="text-sm font-mono bg-muted/40 p-3 rounded-md border whitespace-pre-wrap">
-                  {benchResult.optimized_description}
-                </pre>
-              </div>
-            )}
+            {/* Side by side agent decisions */}
+            <div className="grid grid-cols-2 gap-4">
+              <AgentCard decision={simResult.before} targetTool={simResult.target_tool} title="Agent A — Original" />
+              <AgentCard decision={simResult.after} targetTool={simResult.target_tool} title="Agent B — Optimized" />
+            </div>
           </div>
         )}
       </div>
@@ -328,74 +276,52 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
   );
 }
 
-function BenchmarkResultCard({ title, result }: { title: string; result: DiscoveryResult }) {
-  return (
-    <div className="border rounded-md p-4 space-y-3">
-      <p className="text-sm font-medium">{title}</p>
+function AgentCard({ decision, targetTool, title }: { decision: AgentDecision; targetTool: string; title: string }) {
+  const pickedTarget = decision.picked_tool.toLowerCase().includes(targetTool.toLowerCase());
 
-      <div className="grid grid-cols-3 gap-2">
-        <StatusBadge label="Discovered" value={result.discovered} />
-        <StatusBadge label="Selected" value={result.selected} />
-        <StatusBadge label="Invoked" value={result.invoked_correctly} />
+  return (
+    <div className={`border rounded-md p-4 space-y-3 ${
+      pickedTarget ? "border-green-500" : "border-red-500"
+    }`}>
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">{title}</p>
+        <Badge variant={pickedTarget ? "default" : "destructive"} className="text-xs">
+          {pickedTarget ? "picked your tool" : "picked competitor"}
+        </Badge>
       </div>
 
-      {result.discovery_rank !== null && (
-        <p className="text-sm font-mono text-muted-foreground">
-          Search rank: #{result.discovery_rank} of {result.competing_tools.length} results
-        </p>
-      )}
+      <div>
+        <p className="text-xs text-muted-foreground">Recommended:</p>
+        <p className="text-base font-mono font-medium">{decision.picked_tool}</p>
+      </div>
 
-      {!result.discovered && (
-        <p className="text-sm text-destructive">
-          Not found among {result.num_distractors} competing tools
-        </p>
-      )}
+      <div>
+        <p className="text-xs text-muted-foreground">Reasoning:</p>
+        <p className="text-sm">{decision.reasoning}</p>
+      </div>
 
-      {result.competing_tools.length > 0 && (
-        <div className="space-y-1">
-          <p className="text-xs text-muted-foreground">Search results:</p>
-          <div className="flex flex-wrap gap-1">
-            {result.competing_tools.map((name, i) => (
-              <span
-                key={i}
-                className={`text-xs font-mono px-1.5 py-0.5 rounded ${
-                  name === result.target_tool_name
-                    ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"
-                    : "bg-muted text-muted-foreground"
-                }`}
-              >
-                {name}
-              </span>
-            ))}
-          </div>
+      <div>
+        <p className="text-xs text-muted-foreground">Tools evaluated:</p>
+        <div className="flex flex-wrap gap-1 mt-1">
+          {decision.tools_evaluated.map((t, i) => (
+            <span
+              key={i}
+              className={`text-xs font-mono px-1.5 py-0.5 rounded ${
+                t.toLowerCase().includes(targetTool.toLowerCase())
+                  ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {t}
+            </span>
+          ))}
         </div>
-      )}
-
-      {result.raw_response.length > 0 && (
-        <details className="text-xs">
-          <summary className="text-muted-foreground cursor-pointer">Raw response</summary>
-          <pre className="font-mono mt-1 p-2 bg-muted/40 rounded whitespace-pre-wrap overflow-x-auto text-xs">
-            {result.raw_response.join("\n")}
-          </pre>
-        </details>
-      )}
-    </div>
-  );
-}
-
-function StatusBadge({ label, value }: { label: string; value: boolean }) {
-  return (
-    <div className="text-center">
-      <div
-        className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-base font-medium ${
-          value
-            ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300"
-            : "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300"
-        }`}
-      >
-        {value ? "Y" : "N"}
       </div>
-      <p className="text-xs text-muted-foreground mt-1">{label}</p>
+
+      <div className="flex items-center gap-2">
+        <p className="text-xs text-muted-foreground">Confidence:</p>
+        <Badge variant="outline" className="text-xs">{decision.confidence}</Badge>
+      </div>
     </div>
   );
 }

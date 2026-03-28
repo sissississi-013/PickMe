@@ -14,6 +14,7 @@ from mcp_scout import score_mcp_tools
 from optimizer import generate_optimizations
 from benchmark import run_benchmark, run_tool_selection_proof
 from discovery_benchmark import run_discovery_benchmark, generate_tool_from_description
+from agent_simulation import run_agent_simulation, SimulationResult
 from models import DiscoveryBenchmarkReport
 
 app = FastAPI(title="Pick Me", description="Agent discoverability engine")
@@ -121,3 +122,25 @@ class GenerateToolRequest(BaseModel):
 @app.post("/api/tool/generate")
 async def generate_tool(req: GenerateToolRequest):
     return await generate_tool_from_description(req.description)
+
+
+# --- Agent Simulation ---
+
+class SimulationRequest(BaseModel):
+    target_tool: str
+    target_url: str | None = None
+    target_description: str
+    optimized_description: str | None = None
+    task: str
+    competitors: list[str] | None = None
+
+@app.post("/api/simulate", response_model=SimulationResult)
+async def simulate(req: SimulationRequest):
+    return await run_agent_simulation(
+        target_tool=req.target_tool,
+        target_url=req.target_url,
+        target_description=req.target_description,
+        optimized_description=req.optimized_description,
+        task=req.task,
+        competitors=req.competitors,
+    )

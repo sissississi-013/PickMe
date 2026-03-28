@@ -38,8 +38,8 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
-        <div className="flex items-center gap-3">
-          <Image src="/logo.png" alt="PickMe" width={140} height={40} priority />
+        <div className="flex items-center gap-3 -ml-1">
+          <Image src="/logo.png" alt="PickMe" width={120} height={36} priority />
           <p className="text-sm text-muted-foreground border-l pl-3">AI Agent Discoverability Engine</p>
         </div>
 
