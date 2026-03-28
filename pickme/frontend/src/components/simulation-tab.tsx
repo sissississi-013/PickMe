@@ -170,7 +170,7 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-medium">Optimization Recommendations</p>
+            <p className="text-lg font-semibold">Optimization Recommendations</p>
             <p className="text-sm text-muted-foreground mt-0.5">
               Scan a URL first, then generate research-backed fixes
             </p>
@@ -234,7 +234,7 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
       {/* Section 2: Agent Simulation */}
       <div className="space-y-4">
         <div>
-          <p className="font-medium">Agent Simulation</p>
+          <p className="text-lg font-semibold">Agent Simulation</p>
           <p className="text-sm text-muted-foreground mt-0.5">
             Two parallel agents evaluate your tool against real competitors. One sees the original description, the other sees an optimized version.
           </p>
@@ -437,7 +437,7 @@ function ActivityLog({ logs, live }: { logs: LogEntry[]; live?: boolean }) {
 
   return (
     <div className="space-y-1.5">
-      <p className="text-sm font-medium">Session Log</p>
+      <p className="text-lg font-semibold">Session Log</p>
       <p className="text-xs text-muted-foreground">Full transcript of both agent sessions — searches, doc reads, reasoning, and decisions</p>
       <div className="bg-zinc-950 text-zinc-300 rounded-md p-4 font-mono text-xs max-h-[500px] overflow-y-auto space-y-1">
         {logs.map((log, i) => {

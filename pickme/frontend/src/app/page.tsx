@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ScanInput } from "@/components/scan-input";
 import { DiscoveryTab } from "@/components/discovery-tab";
 import { MetricsTab } from "@/components/metrics-tab";
@@ -15,6 +15,11 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUrl, setLastUrl] = useState("");
+  const [dark, setDark] = useState(true);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+  }, [dark]);
 
   async function handleScan(url: string) {
     setLoading(true);
@@ -36,21 +41,43 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-background">
-      <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
-        <div className="flex items-center gap-3 -ml-1 pb-4 border-b border-border">
-          <Image src="/logo-light.png" alt="PickMe" width={120} height={36} priority />
-          <p className="text-sm text-muted-foreground border-l pl-3">AI Agent Discoverability Engine</p>
+    <main className="min-h-screen bg-background text-foreground">
+      <div className="max-w-5xl mx-auto px-8 py-10 space-y-8">
+
+        {/* Header */}
+        <div className="flex items-center justify-between pb-6 border-b border-border">
+          <div className="flex items-center gap-4">
+            <Image
+              src={dark ? "/logo-light.png" : "/logo.png"}
+              alt="PickMe"
+              width={130}
+              height={38}
+              priority
+            />
+            <div className="border-l border-border pl-4">
+              <p className="text-base text-muted-foreground">
+                Make your brand get picked by AI agents
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setDark(!dark)}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-md border border-border"
+          >
+            {dark ? "Light" : "Dark"}
+          </button>
         </div>
 
+        {/* Search */}
         <ScanInput onScan={handleScan} loading={loading} />
 
         {error && (
-          <div className="text-sm text-destructive border border-destructive/30 rounded-md px-3 py-2">
+          <div className="text-sm text-destructive border border-destructive/30 rounded-md px-4 py-3">
             {error}
           </div>
         )}
 
+        {/* Tabs */}
         <Tabs defaultValue={0}>
           <TabsList variant="line">
             <TabsTrigger value={0}>Discovery</TabsTrigger>

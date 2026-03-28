@@ -86,8 +86,8 @@ export function DiscoveryTab({ discovery, loading }: DiscoveryTabProps) {
 
   const pct = Math.round(discovery.ai_visibility_pct);
   const donutData = [{ value: pct }, { value: 100 - pct }];
-  const color = pct >= 70 ? "#6366f1" : pct >= 40 ? "#eab308" : "#ef4444";
-  const textColor = pct >= 70 ? "text-indigo-400" : pct >= 40 ? "text-yellow-500" : "text-red-500";
+  const color = pct >= 70 ? "#3b82f6" : pct >= 40 ? "#eab308" : "#ef4444";
+  const textColor = pct >= 70 ? "text-blue-400" : pct >= 40 ? "text-yellow-500" : "text-red-500";
   const totalBots = discovery.bots_allowed + discovery.bots_blocked;
 
   return (
@@ -115,8 +115,8 @@ export function DiscoveryTab({ discovery, loading }: DiscoveryTabProps) {
           </p>
         </div>
 
-        <div className="flex-1 space-y-1">
-          <p className="font-medium">{discovery.page_title || discovery.url}</p>
+        <div className="flex-1 space-y-1.5">
+          <p className="text-xl font-semibold">{discovery.page_title || discovery.url}</p>
           <p className="text-sm text-muted-foreground font-mono">{discovery.url}</p>
           <div className="flex gap-4 mt-3 text-sm">
             <div>
@@ -146,7 +146,7 @@ export function DiscoveryTab({ discovery, loading }: DiscoveryTabProps) {
 
       {/* Discovery Signals with Consequences */}
       <div className="space-y-3">
-        <p className="font-medium text-foreground/90">
+        <p className="text-lg font-semibold text-foreground">
           <em>Discovery Signals</em>
         </p>
         <p className="text-sm text-muted-foreground">
@@ -163,7 +163,7 @@ export function DiscoveryTab({ discovery, loading }: DiscoveryTabProps) {
 
       {/* Content Quality */}
       <div className="space-y-3">
-        <p className="font-medium text-foreground/90">
+        <p className="text-lg font-semibold text-foreground">
           <em>Content Quality</em>
         </p>
         <p className="text-sm text-muted-foreground">
@@ -180,7 +180,7 @@ export function DiscoveryTab({ discovery, loading }: DiscoveryTabProps) {
 
       {/* Bot Access Grid */}
       <div className="space-y-3">
-        <p className="font-medium text-foreground/90">
+        <p className="text-lg font-semibold text-foreground">
           <em>Bot Access Map</em>
         </p>
         <p className="text-sm text-muted-foreground">
@@ -204,7 +204,7 @@ export function DiscoveryTab({ discovery, loading }: DiscoveryTabProps) {
       {/* Agent's View — Markdown Preview */}
       {discovery.markdown_preview && (
         <div className="space-y-3">
-          <p className="font-medium text-foreground/90">
+          <p className="text-lg font-semibold text-foreground">
             <em>Agent&apos;s View</em>
           </p>
           <p className="text-sm text-muted-foreground">
