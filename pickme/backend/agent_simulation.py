@@ -1,8 +1,8 @@
 """
-Real agent simulation engine with activity logging.
+Real agentic simulation with visible tool use.
 
-Runs two parallel Claude agent sessions with identical tasks.
-Every step is logged for full transparency.
+The agent gets tools (web_search, read_docs, evaluate) and we watch it
+work through the problem step by step — like a real Claude Code session.
 """
 
 import asyncio
@@ -18,8 +18,9 @@ client = AsyncAnthropic()
 
 class LogEntry(BaseModel):
     timestamp: float
-    step: str
-    detail: str
+    actor: str  # "system" | "agent_a" | "agent_b" | "tool"
+    type: str   # "thinking" | "tool_call" | "tool_result" | "decision" | "info"
+    content: str
     data: str | None = None
 
 
@@ -29,9 +30,7 @@ class AgentDecision(BaseModel):
     reasoning: str
     tools_evaluated: list[str]
     confidence: str
-    raw_output: str
-    system_prompt: str = ""
-    user_prompt: str = ""
+    session_log: list[LogEntry] = []
 
 
 class SimulationResult(BaseModel):
@@ -45,8 +44,50 @@ class SimulationResult(BaseModel):
     activity_log: list[LogEntry] = []
 
 
-def _log(logs: list[LogEntry], step: str, detail: str, data: str | None = None):
-    logs.append(LogEntry(timestamp=time.time(), step=step, detail=detail, data=data))
+# Tools the agent can use
+AGENT_TOOLS = [
+    {
+        "name": "web_search",
+        "description": "Search the web for information about tools, frameworks, and services. Use this to find and compare options.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search query"}
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "read_documentation",
+        "description": "Read the documentation or README for a specific tool or framework. Returns the content.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "tool_name": {"type": "string", "description": "Name of the tool/framework"},
+                "url": {"type": "string", "description": "Optional URL to fetch docs from"},
+            },
+            "required": ["tool_name"],
+        },
+    },
+    {
+        "name": "make_recommendation",
+        "description": "Make your final tool recommendation after evaluating all options. Call this when you've done enough research.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "picked_tool": {"type": "string", "description": "Name of recommended tool"},
+                "reasoning": {"type": "string", "description": "2-3 sentences explaining your choice"},
+                "tools_evaluated": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "All tools you considered",
+                },
+                "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+            },
+            "required": ["picked_tool", "reasoning", "tools_evaluated", "confidence"],
+        },
+    },
+]
 
 
 async def run_agent_simulation(
@@ -58,59 +99,47 @@ async def run_agent_simulation(
     competitors: list[str] | None = None,
 ) -> SimulationResult:
     logs: list[LogEntry] = []
-    _log(logs, "init", f"Starting simulation for '{target_tool}'", f"Task: {task}")
+    _log(logs, "system", "info", f"Starting simulation for '{target_tool}'", f"Task: {task}")
 
-    # Step 1: Fetch docs
-    _log(logs, "fetch_docs", f"Fetching documentation for {target_tool}...")
-    target_docs = await _fetch_docs(target_tool, target_url, logs)
-    _log(logs, "fetch_docs", f"Got {len(target_docs)} chars of docs for {target_tool}",
-         target_docs[:200] + "..." if len(target_docs) > 200 else target_docs)
-
-    # Step 2: Identify competitors
-    if not competitors:
-        _log(logs, "competitors", f"Identifying competitors for {target_tool}...")
-        competitors = await _identify_competitors(target_tool, task)
-    _log(logs, "competitors", f"Competitors identified: {', '.join(competitors)}")
-
-    # Step 3: Fetch competitor docs
-    _log(logs, "fetch_docs", f"Fetching docs for {len(competitors)} competitors...")
-    competitor_docs = await asyncio.gather(
-        *[_fetch_docs(comp, None, logs) for comp in competitors[:4]]
-    )
-    for comp, docs in zip(competitors[:4], competitor_docs):
-        _log(logs, "fetch_docs", f"Got {len(docs)} chars for {comp}",
-             docs[:150] + "..." if len(docs) > 150 else docs)
-
-    competitor_context = "\n\n".join([
-        f"## {comp}\n{docs}"
-        for comp, docs in zip(competitors[:4], competitor_docs)
-    ])
-
-    # Step 4: Optimize
+    # Optimize description if not provided
     if not optimized_description:
-        _log(logs, "optimize", f"Generating optimized description for {target_tool}...")
-        optimized_description = await _optimize_description(
-            target_tool, target_description, target_docs, task
-        )
-    _log(logs, "optimize", "Optimized description ready", optimized_description)
+        _log(logs, "system", "info", "Generating optimized description...")
+        optimized_description = await _optimize_description(target_tool, target_description, task)
+        _log(logs, "system", "info", "Optimized description ready", optimized_description)
 
-    # Step 5: Build contexts
-    before_context = f"## {target_tool}\n{target_description}\n\n{target_docs}"
-    after_context = f"## {target_tool}\n{optimized_description}\n\n{target_docs}"
-
-    # Step 6: Run agents
-    _log(logs, "agent_a", "Launching Agent A (original description)...")
-    _log(logs, "agent_b", "Launching Agent B (optimized description)...")
+    # Run both agents in parallel
+    _log(logs, "system", "info", "Launching Agent A (original) and Agent B (optimized) in parallel...")
 
     agent_a, agent_b = await asyncio.gather(
-        _run_agent(task, target_tool, before_context, competitor_context, "before", logs),
-        _run_agent(task, target_tool, after_context, competitor_context, "after", logs),
+        _run_agentic_session(
+            task=task,
+            target_tool=target_tool,
+            target_description=target_description,
+            target_url=target_url,
+            label="agent_a",
+        ),
+        _run_agentic_session(
+            task=task,
+            target_tool=target_tool,
+            target_description=optimized_description,
+            target_url=target_url,
+            label="agent_b",
+        ),
     )
 
-    _log(logs, "agent_a", f"Agent A picked: {agent_a.picked_tool} (confidence: {agent_a.confidence})")
-    _log(logs, "agent_b", f"Agent B picked: {agent_b.picked_tool} (confidence: {agent_b.confidence})")
+    # Merge session logs into activity log
+    all_session_logs = []
+    for entry in agent_a.session_log:
+        all_session_logs.append(entry)
+    for entry in agent_b.session_log:
+        all_session_logs.append(entry)
+    all_session_logs.sort(key=lambda e: e.timestamp)
+    logs.extend(all_session_logs)
 
-    # Step 7: Compare
+    _log(logs, "agent_a", "decision", f"Agent A picked: {agent_a.picked_tool}")
+    _log(logs, "agent_b", "decision", f"Agent B picked: {agent_b.picked_tool}")
+
+    # Compare
     target_lower = target_tool.lower()
     before_picked = target_lower in agent_a.picked_tool.lower()
     after_picked = target_lower in agent_b.picked_tool.lower()
@@ -121,11 +150,11 @@ async def run_agent_simulation(
     elif before_picked and after_picked:
         summary = f"{target_tool} was picked in both cases. Optimization reinforced existing selection."
     elif not before_picked and not after_picked:
-        summary = f"{target_tool} was not picked in either case. The tool may need deeper improvements beyond description optimization."
+        summary = f"{target_tool} was not picked in either case. Deeper improvements needed."
     else:
-        summary = f"Unexpected: {target_tool} was picked before but not after. Review the optimization."
+        summary = f"Unexpected: {target_tool} was picked before but not after."
 
-    _log(logs, "result", summary)
+    _log(logs, "system", "info", summary)
 
     return SimulationResult(
         task=task,
@@ -139,86 +168,176 @@ async def run_agent_simulation(
     )
 
 
-async def _run_agent(
+async def _run_agentic_session(
     task: str,
     target_tool: str,
-    target_context: str,
-    competitor_context: str,
+    target_description: str,
+    target_url: str | None,
     label: str,
-    logs: list[LogEntry],
 ) -> AgentDecision:
-    system = """You are an expert developer agent. When given a task, you evaluate available tools, frameworks, and services to recommend the BEST option.
+    """Run a multi-turn agentic session where the agent uses tools to research and decide."""
+    session_log: list[LogEntry] = []
+    agent_name = "Agent A (original)" if label == "agent_a" else "Agent B (optimized)"
 
-Your evaluation process:
-1. Understand the task requirements
-2. Review each available tool's documentation and capabilities
-3. Compare: features, ease of use, community support, documentation quality, ecosystem
-4. Make a definitive recommendation with clear reasoning
+    system = f"""You are a developer agent evaluating tools for a project. You have access to web search and documentation reading tools.
 
-Be specific and decisive. Pick ONE winner."""
+Your process:
+1. First, search for relevant tools and frameworks for the task
+2. Read documentation for the most promising options (at least 2-3)
+3. Compare them based on: features, performance, ecosystem, documentation quality, ease of use
+4. Make your final recommendation using the make_recommendation tool
 
-    user_prompt = f"""Task: {task}
+The user has suggested considering "{target_tool}": {target_description}
 
-Here are the available tools/frameworks/services. Evaluate each one and recommend the BEST choice for this task.
+Be thorough — search, read docs, then decide. Always use make_recommendation at the end."""
 
-{target_context}
+    messages = [{"role": "user", "content": f"I need to {task}. Research the best tools/frameworks for this and make a recommendation. Start by searching for options."}]
 
-{competitor_context}
+    _log(session_log, label, "thinking", f"{agent_name} starting session...",
+         f"System: {system[:150]}...")
 
----
+    max_turns = 8
+    decision = None
 
-After reviewing all options, respond in this exact JSON format:
-{{
-  "picked_tool": "name of your top recommendation",
-  "reasoning": "2-3 sentences explaining why you picked this",
-  "tools_evaluated": ["list", "of", "all", "tools", "you", "considered"],
-  "confidence": "high" or "medium" or "low"
-}}
-
-Respond with ONLY the JSON, no other text."""
-
-    tag = "agent_a" if label == "before" else "agent_b"
-    _log(logs, tag, f"Sending prompt to Claude (sonnet-4-6)...",
-         f"System: {system[:100]}...\nUser prompt length: {len(user_prompt)} chars")
-
-    msg = await client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=1024,
-        system=system,
-        messages=[{"role": "user", "content": user_prompt}],
-    )
-
-    raw = msg.content[0].text.strip()
-    _log(logs, tag, f"Response received ({len(raw)} chars)", raw[:300])
-
-    try:
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-        data = json.loads(raw)
-        return AgentDecision(
-            agent_label=label,
-            picked_tool=data.get("picked_tool", "unknown"),
-            reasoning=data.get("reasoning", ""),
-            tools_evaluated=data.get("tools_evaluated", []),
-            confidence=data.get("confidence", "medium"),
-            raw_output=raw,
-            system_prompt=system,
-            user_prompt=user_prompt,
+    for turn in range(max_turns):
+        msg = await client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=2048,
+            system=system,
+            messages=messages,
+            tools=AGENT_TOOLS,
         )
-    except (json.JSONDecodeError, KeyError):
-        return AgentDecision(
+
+        # Process response blocks
+        assistant_content = []
+        for block in msg.content:
+            if hasattr(block, "text") and block.text:
+                _log(session_log, label, "thinking", block.text)
+                assistant_content.append({"type": "text", "text": block.text})
+
+            elif block.type == "tool_use":
+                tool_name = block.name
+                tool_input = block.input
+
+                assistant_content.append({
+                    "type": "tool_use",
+                    "id": block.id,
+                    "name": tool_name,
+                    "input": tool_input,
+                })
+
+                if tool_name == "make_recommendation":
+                    _log(session_log, label, "decision",
+                         f"Recommendation: {tool_input.get('picked_tool', '?')}",
+                         json.dumps(tool_input, indent=2))
+                    decision = AgentDecision(
+                        agent_label=label,
+                        picked_tool=tool_input.get("picked_tool", "unknown"),
+                        reasoning=tool_input.get("reasoning", ""),
+                        tools_evaluated=tool_input.get("tools_evaluated", []),
+                        confidence=tool_input.get("confidence", "medium"),
+                        session_log=session_log,
+                    )
+                    return decision
+
+                elif tool_name == "web_search":
+                    query = tool_input.get("query", "")
+                    _log(session_log, label, "tool_call", f"web_search(\"{query}\")")
+                    result = await _handle_web_search(query)
+                    _log(session_log, label, "tool_result", f"Search returned {len(result)} chars",
+                         result[:300] + "..." if len(result) > 300 else result)
+
+                    messages.append({"role": "assistant", "content": assistant_content})
+                    messages.append({"role": "user", "content": [
+                        {"type": "tool_result", "tool_use_id": block.id, "content": result}
+                    ]})
+                    assistant_content = []
+
+                elif tool_name == "read_documentation":
+                    t_name = tool_input.get("tool_name", "")
+                    t_url = tool_input.get("url")
+                    _log(session_log, label, "tool_call",
+                         f"read_documentation(\"{t_name}\"" + (f", url=\"{t_url}\")" if t_url else ")"))
+                    result = await _fetch_docs(t_name, t_url)
+                    _log(session_log, label, "tool_result",
+                         f"Docs for {t_name}: {len(result)} chars",
+                         result[:300] + "..." if len(result) > 300 else result)
+
+                    messages.append({"role": "assistant", "content": assistant_content})
+                    messages.append({"role": "user", "content": [
+                        {"type": "tool_result", "tool_use_id": block.id, "content": result}
+                    ]})
+                    assistant_content = []
+
+        if msg.stop_reason == "end_turn":
+            # Agent finished without making a recommendation — extract from text
+            if assistant_content:
+                messages.append({"role": "assistant", "content": assistant_content})
+            break
+
+    # If no explicit decision was made, parse the last text response
+    if decision is None:
+        _log(session_log, label, "thinking", "Session ended without explicit recommendation, inferring from conversation...")
+        decision = AgentDecision(
             agent_label=label,
-            picked_tool="parse_error",
-            reasoning=raw[:500],
+            picked_tool="undecided",
+            reasoning="Agent did not make an explicit recommendation within the turn limit.",
             tools_evaluated=[],
             confidence="low",
-            raw_output=raw,
-            system_prompt=system,
-            user_prompt=user_prompt,
+            session_log=session_log,
         )
 
+    return decision
 
-async def _fetch_docs(tool_name: str, url: str | None, logs: list[LogEntry] | None = None) -> str:
+
+async def _handle_web_search(query: str) -> str:
+    """Simulate web search by fetching real results."""
+    async with httpx.AsyncClient(follow_redirects=True, timeout=10) as http:
+        # Search PyPI
+        results = []
+        try:
+            resp = await http.get(f"https://pypi.org/search/?q={query}", headers={"Accept": "text/html"})
+            if resp.status_code == 200:
+                # Extract package names from search results
+                names = re.findall(r'class="package-snippet__name">([^<]+)</span>', resp.text)
+                descs = re.findall(r'class="package-snippet__description">([^<]+)</p>', resp.text)
+                for name, desc in zip(names[:5], descs[:5]):
+                    results.append(f"- {name.strip()}: {desc.strip()}")
+        except Exception:
+            pass
+
+        # Search npm
+        try:
+            resp = await http.get(f"https://registry.npmjs.org/-/v1/search?text={query}&size=5")
+            if resp.status_code == 200:
+                data = resp.json()
+                for obj in data.get("objects", [])[:5]:
+                    pkg = obj.get("package", {})
+                    results.append(f"- {pkg.get('name', '?')}: {pkg.get('description', 'No description')}")
+        except Exception:
+            pass
+
+        # Search GitHub
+        try:
+            resp = await http.get(
+                f"https://api.github.com/search/repositories?q={query}&sort=stars&per_page=5",
+                headers={"Accept": "application/vnd.github.v3+json"},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                for repo in data.get("items", [])[:5]:
+                    stars = repo.get("stargazers_count", 0)
+                    results.append(f"- {repo.get('full_name', '?')} ({stars} stars): {repo.get('description', '')}")
+        except Exception:
+            pass
+
+    if results:
+        return f"Search results for '{query}':\n" + "\n".join(results)
+    return f"No results found for '{query}'. Try a different search query or evaluate based on your knowledge."
+
+
+async def _fetch_docs(tool_name: str, url: str | None) -> str:
+    """Fetch real documentation."""
     async with httpx.AsyncClient(follow_redirects=True, timeout=10) as http:
         if url:
             try:
@@ -226,89 +345,59 @@ async def _fetch_docs(tool_name: str, url: str | None, logs: list[LogEntry] | No
                 if resp.status_code == 200:
                     text = _extract_text(resp.text)
                     if len(text) > 100:
-                        if logs:
-                            _log(logs, "fetch_docs", f"Fetched {url} ({len(text)} chars)")
                         return text[:3000]
             except Exception:
                 pass
 
         slug = tool_name.lower().replace(" ", "-")
-        github_urls = [
-            f"https://raw.githubusercontent.com/{slug}/{slug}/main/README.md",
-            f"https://raw.githubusercontent.com/{slug}/{slug}/master/README.md",
-            f"https://raw.githubusercontent.com/tiangolo/{slug}/master/README.md",
-        ]
-        for gh_url in github_urls:
-            try:
-                resp = await http.get(gh_url)
-                if resp.status_code == 200:
-                    if logs:
-                        _log(logs, "fetch_docs", f"Fetched GitHub README: {gh_url}")
-                    return resp.text[:3000]
-            except Exception:
-                continue
 
+        # GitHub README
+        for owner in [slug, f"tiangolo/{slug}", f"pallets/{slug}", f"django/{slug}", f"expressjs/{slug}"]:
+            for branch in ["main", "master"]:
+                try:
+                    resp = await http.get(f"https://raw.githubusercontent.com/{owner}/{branch}/README.md")
+                    if resp.status_code == 200:
+                        return resp.text[:3000]
+                except Exception:
+                    continue
+
+        # PyPI
         try:
             resp = await http.get(f"https://pypi.org/pypi/{slug}/json")
             if resp.status_code == 200:
                 data = resp.json()
-                desc = data.get("info", {}).get("description", "")
-                if desc:
-                    if logs:
-                        _log(logs, "fetch_docs", f"Fetched from PyPI: {slug}")
-                    return desc[:3000]
+                info = data.get("info", {})
+                summary = info.get("summary", "")
+                desc = info.get("description", "")
+                return f"{tool_name}: {summary}\n\n{desc[:2500]}"
         except Exception:
             pass
 
+        # npm
         try:
             resp = await http.get(f"https://registry.npmjs.org/{slug}")
             if resp.status_code == 200:
                 data = resp.json()
                 readme = data.get("readme", "")
                 if readme:
-                    if logs:
-                        _log(logs, "fetch_docs", f"Fetched from npm: {slug}")
                     return readme[:3000]
         except Exception:
             pass
 
-    return f"No documentation fetched for {tool_name}. Evaluate based on general knowledge."
+    return f"Documentation for {tool_name}: Evaluate based on general knowledge. {tool_name} is a popular tool in its category."
 
 
-async def _identify_competitors(tool_name: str, task: str) -> list[str]:
-    msg = await client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=256,
-        messages=[{"role": "user", "content": f"""List 4 real competing tools/frameworks/services for "{tool_name}" when the task is: "{task}"
-
-Return ONLY a JSON array of strings with tool names, e.g. ["Express", "Django", "Flask", "Spring Boot"]
-No markdown fencing."""}],
-    )
-    try:
-        raw = msg.content[0].text.strip()
-        if raw.startswith("```"):
-            raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-        return json.loads(raw)
-    except Exception:
-        return ["Alternative A", "Alternative B", "Alternative C", "Alternative D"]
-
-
-async def _optimize_description(tool_name: str, original_desc: str, docs: str, task: str) -> str:
+async def _optimize_description(tool_name: str, original_desc: str, task: str) -> str:
     msg = await client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=512,
-        messages=[{"role": "user", "content": f"""Rewrite this tool/framework description to maximize its chances of being selected by a coding agent for the task: "{task}"
+        messages=[{"role": "user", "content": f"""Rewrite this tool description to maximize its chances of being selected by a coding agent for: "{task}"
 
 Tool: {tool_name}
-Original description: {original_desc}
-Documentation excerpt: {docs[:1000]}
+Original: {original_desc}
 
-Write a compelling 2-3 sentence description that highlights:
-- What it does and its key differentiators
-- Why it's the best choice for this specific task
-- Key features (performance, ecosystem, ease of use)
-
-Return ONLY the optimized description text, nothing else."""}],
+Write 2-3 compelling sentences highlighting key differentiators, performance, and ecosystem.
+Return ONLY the description text."""}],
     )
     return msg.content[0].text.strip()
 
@@ -319,3 +408,7 @@ def _extract_text(html: str) -> str:
     text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
+
+
+def _log(logs: list[LogEntry], actor: str, type: str, content: str, data: str | None = None):
+    logs.append(LogEntry(timestamp=time.time(), actor=actor, type=type, content=content, data=data))

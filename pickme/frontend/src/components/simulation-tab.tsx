@@ -34,8 +34,9 @@ interface AgentDecision {
 
 interface LogEntry {
   timestamp: number;
-  step: string;
-  detail: string;
+  actor: string;
+  type: string;
+  content: string;
   data: string | null;
 }
 
@@ -363,14 +364,27 @@ function AgentCard({ decision, targetTool, title }: { decision: AgentDecision; t
   );
 }
 
-const STEP_COLORS: Record<string, string> = {
-  init: "text-blue-500",
-  fetch_docs: "text-cyan-500",
-  competitors: "text-purple-500",
-  optimize: "text-yellow-500",
-  agent_a: "text-orange-500",
-  agent_b: "text-green-500",
-  result: "text-white font-medium",
+const ACTOR_COLORS: Record<string, string> = {
+  system: "text-zinc-500",
+  agent_a: "text-orange-400",
+  agent_b: "text-blue-400",
+  tool: "text-cyan-400",
+};
+
+const TYPE_ICONS: Record<string, string> = {
+  thinking: "~",
+  tool_call: ">",
+  tool_result: "<",
+  decision: "*",
+  info: "#",
+};
+
+const TYPE_COLORS: Record<string, string> = {
+  thinking: "text-zinc-400",
+  tool_call: "text-yellow-400",
+  tool_result: "text-cyan-300",
+  decision: "text-green-400 font-medium",
+  info: "text-zinc-500",
 };
 
 function ActivityLog({ logs }: { logs: LogEntry[] }) {
@@ -378,22 +392,30 @@ function ActivityLog({ logs }: { logs: LogEntry[] }) {
 
   return (
     <div className="space-y-1.5">
-      <p className="text-sm font-medium">Activity Log</p>
-      <div className="bg-zinc-950 text-zinc-300 rounded-md p-4 font-mono text-xs max-h-96 overflow-y-auto space-y-0.5">
+      <p className="text-sm font-medium">Session Log</p>
+      <p className="text-xs text-muted-foreground">Full transcript of both agent sessions — searches, doc reads, reasoning, and decisions</p>
+      <div className="bg-zinc-950 text-zinc-300 rounded-md p-4 font-mono text-xs max-h-[500px] overflow-y-auto space-y-1">
         {logs.map((log, i) => {
-          const elapsed = ((log.timestamp - startTime) * 1000).toFixed(0);
-          const color = STEP_COLORS[log.step] || "text-zinc-400";
+          const elapsed = ((log.timestamp - startTime)).toFixed(1);
+          const actorColor = ACTOR_COLORS[log.actor] || "text-zinc-400";
+          const typeColor = TYPE_COLORS[log.type] || "text-zinc-400";
+          const icon = TYPE_ICONS[log.type] || " ";
+          const actorLabel = log.actor === "agent_a" ? "A" : log.actor === "agent_b" ? "B" : "sys";
+
           return (
-            <div key={i}>
-              <div className="flex gap-2">
-                <span className="text-zinc-600 w-16 flex-shrink-0 text-right">{elapsed}ms</span>
-                <span className={`w-24 flex-shrink-0 ${color}`}>[{log.step}]</span>
-                <span className="text-zinc-300">{log.detail}</span>
+            <div key={i} className={log.type === "decision" ? "mt-2 mb-1" : ""}>
+              <div className="flex gap-1.5">
+                <span className="text-zinc-700 w-12 flex-shrink-0 text-right">{elapsed}s</span>
+                <span className={`w-6 flex-shrink-0 text-center ${actorColor}`}>{actorLabel}</span>
+                <span className={`w-3 flex-shrink-0 ${typeColor}`}>{icon}</span>
+                <span className={typeColor}>{log.content}</span>
               </div>
               {log.data && (
-                <details className="ml-[10.5rem]">
-                  <summary className="text-zinc-600 cursor-pointer hover:text-zinc-400">data</summary>
-                  <pre className="text-zinc-500 whitespace-pre-wrap mt-0.5 pl-2 border-l border-zinc-800">
+                <details className="ml-[5.75rem]">
+                  <summary className="text-zinc-600 cursor-pointer hover:text-zinc-400 text-[11px]">
+                    show data
+                  </summary>
+                  <pre className="text-zinc-500 whitespace-pre-wrap mt-0.5 pl-2 border-l border-zinc-800 text-[11px]">
                     {log.data}
                   </pre>
                 </details>
