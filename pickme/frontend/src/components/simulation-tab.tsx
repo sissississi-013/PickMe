@@ -295,7 +295,7 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
 
         <Button
           onClick={runSimulation}
-          disabled={simLoading || !toolName.trim() || !simTask.trim()}
+          disabled={simLoading || !toolName.trim()}
         >
           {simLoading ? "Running simulation (~30s)..." : "Run Agent Simulation"}
         </Button>
