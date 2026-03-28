@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PickMe - Presentation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #0a0a0f;
+    color: #e2e8f0;
+  }
+
+  .slide {
+    width: 1280px;
+    height: 720px;
+    position: relative;
+    overflow: hidden;
+    page-break-after: always;
+    margin: 0 auto 40px;
+  }
+
+  @media print {
+    body { background: white; }
+    .slide { margin: 0; page-break-after: always; }
+  }
+
+  /* Slide 1: Title */
+  .slide-1 {
+    background: linear-gradient(135deg, #080c14 0%, #0f1a2e 50%, #1e3a5f 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .slide-1 .logo { font-size: 80px; font-weight: 800; letter-spacing: -2px; margin-bottom: 20px; }
+  .slide-1 .logo span:first-child { color: #93c5fd; }
+  .slide-1 .logo span:last-child { color: #3b82f6; }
+  .slide-1 .tagline { font-size: 26px; color: #94a3b8; font-weight: 300; margin-bottom: 50px; }
+  .slide-1 .meta { font-size: 16px; color: #64748b; }
+
+  /* Slide 2: Problem */
+  .slide-2 {
+    background: #080c14;
+    padding: 60px 80px;
+  }
+  .slide-2 .header { font-size: 14px; text-transform: uppercase; letter-spacing: 3px; color: #3b82f6; margin-bottom: 12px; font-weight: 600; }
+  .slide-2 h2 { font-size: 42px; font-weight: 700; line-height: 1.2; margin-bottom: 50px; color: #f1f5f9; }
+  .slide-2 h2 em { color: #3b82f6; font-style: normal; }
+  .slide-2 .stats { display: flex; gap: 40px; margin-bottom: 50px; }
+  .slide-2 .stat { flex: 1; background: #0f1520; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 30px; }
+  .slide-2 .stat .number { font-size: 48px; font-weight: 800; color: #3b82f6; font-variant-numeric: tabular-nums; }
+  .slide-2 .stat .label { font-size: 15px; color: #94a3b8; margin-top: 8px; line-height: 1.4; }
+  .slide-2 .bottom { font-size: 20px; color: #94a3b8; line-height: 1.6; }
+  .slide-2 .bottom strong { color: #f1f5f9; }
+
+  /* Slide 3: Solution */
+  .slide-3 {
+    background: #080c14;
+    padding: 60px 80px;
+  }
+  .slide-3 .header { font-size: 14px; text-transform: uppercase; letter-spacing: 3px; color: #3b82f6; margin-bottom: 12px; font-weight: 600; }
+  .slide-3 h2 { font-size: 38px; font-weight: 700; margin-bottom: 45px; color: #f1f5f9; }
+  .slide-3 .flow { display: flex; gap: 20px; align-items: stretch; }
+  .slide-3 .step { flex: 1; background: #0f1520; border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; padding: 28px; position: relative; }
+  .slide-3 .step-num { position: absolute; top: -14px; left: 24px; background: #3b82f6; color: white; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
+  .slide-3 .step h3 { font-size: 20px; font-weight: 600; color: #f1f5f9; margin-bottom: 10px; margin-top: 8px; }
+  .slide-3 .step p { font-size: 14px; color: #94a3b8; line-height: 1.6; }
+  .slide-3 .step .tag { display: inline-block; margin-top: 12px; font-size: 12px; color: #3b82f6; background: rgba(59,130,246,0.1); padding: 4px 10px; border-radius: 6px; font-weight: 500; }
+  .slide-3 .arrow { display: flex; align-items: center; color: #3b82f6; font-size: 24px; flex-shrink: 0; }
+
+  /* Slide 4: Architecture */
+  .slide-4 {
+    background: #080c14;
+    padding: 60px 80px;
+  }
+  .slide-4 .header { font-size: 14px; text-transform: uppercase; letter-spacing: 3px; color: #3b82f6; margin-bottom: 12px; font-weight: 600; }
+  .slide-4 h2 { font-size: 38px; font-weight: 700; margin-bottom: 40px; color: #f1f5f9; }
+  .slide-4 .arch { display: flex; gap: 30px; }
+  .slide-4 .col { flex: 1; }
+  .slide-4 .col-header { font-size: 13px; text-transform: uppercase; letter-spacing: 2px; color: #64748b; margin-bottom: 16px; font-weight: 600; }
+  .slide-4 .box { background: #0f1520; border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 16px 20px; margin-bottom: 10px; }
+  .slide-4 .box .name { font-size: 15px; font-weight: 600; color: #f1f5f9; }
+  .slide-4 .box .desc { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .slide-4 .box.highlight { border-color: #3b82f6; background: rgba(59,130,246,0.05); }
+  .slide-4 .box.highlight .name { color: #3b82f6; }
+  .slide-4 .tech-row { display: flex; gap: 10px; margin-top: 30px; flex-wrap: wrap; }
+  .slide-4 .tech-pill { font-size: 12px; background: #151d2e; color: #94a3b8; padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.06); }
+
+  /* Slide 5: Demo */
+  .slide-5 {
+    background: linear-gradient(135deg, #080c14 0%, #0f1a2e 50%, #1e3a5f 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .slide-5 .logo { font-size: 56px; font-weight: 800; letter-spacing: -2px; margin-bottom: 30px; }
+  .slide-5 .logo span:first-child { color: #93c5fd; }
+  .slide-5 .logo span:last-child { color: #3b82f6; }
+  .slide-5 h2 { font-size: 36px; font-weight: 600; color: #f1f5f9; margin-bottom: 40px; }
+  .slide-5 .links { display: flex; gap: 40px; }
+  .slide-5 .link { font-size: 18px; color: #94a3b8; }
+  .slide-5 .link strong { color: #3b82f6; }
+</style>
+</head>
+<body>
+
+<!-- SLIDE 1: Title -->
+<div class="slide slide-1">
+  <div class="logo"><span>Pick</span><span>Me</span></div>
+  <div class="tagline">Make your brand get picked by AI agents</div>
+  <div class="meta">Beta Hacks 2026</div>
+</div>
+
+<!-- SLIDE 2: Problem -->
+<div class="slide slide-2">
+  <div class="header">The Problem</div>
+  <h2>AI agents are making technical decisions.<br>Your tools are <em>invisible</em> to them.</h2>
+  <div class="stats">
+    <div class="stat">
+      <div class="number">51%</div>
+      <div class="label">of web traffic is now<br>AI bots and agents</div>
+    </div>
+    <div class="stat">
+      <div class="number">97%</div>
+      <div class="label">of MCP tool descriptions<br>have quality issues</div>
+    </div>
+    <div class="stat">
+      <div class="number">0</div>
+      <div class="label">tools exist to measure<br>agent discoverability</div>
+    </div>
+  </div>
+  <div class="bottom">
+    Coding agents pick frameworks, select APIs, and choose tools autonomously.
+    <strong>If they can't find you, you don't exist.</strong>
+  </div>
+</div>
+
+<!-- SLIDE 3: Solution -->
+<div class="slide slide-3">
+  <div class="header">How PickMe Works</div>
+  <h2>Discover. Optimize. Validate.</h2>
+  <div class="flow">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>Discovery Scan</h3>
+      <p>Enter any URL. We check robots.txt against 16 AI bots, analyze llms.txt, sitemap, structured data, and show what agents actually see.</p>
+      <span class="tag">Autonomous</span>
+    </div>
+    <div class="arrow">&rarr;</div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>Optimization</h3>
+      <p>Research-backed fixes generated by AI. JSON-LD, tool descriptions, robots.txt rules. Each fix cites the paper proving its impact.</p>
+      <span class="tag">+33% visibility (GEO)</span>
+    </div>
+    <div class="arrow">&rarr;</div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>Agent Simulation</h3>
+      <p>Two real AI agents evaluate your tool against competitors. Before vs after optimization. Live web search, doc reading, decision-making.</p>
+      <span class="tag">Live proof</span>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 4: Architecture -->
+<div class="slide slide-4">
+  <div class="header">Architecture</div>
+  <h2>Built for real agent workflows</h2>
+  <div class="arch">
+    <div class="col">
+      <div class="col-header">Backend (Python FastAPI)</div>
+      <div class="box">
+        <div class="name">Discovery Engine</div>
+        <div class="desc">robots.txt parsing, bot access map, markdown conversion, content quality analysis</div>
+      </div>
+      <div class="box">
+        <div class="name">Scout Agents (Web + API + MCP)</div>
+        <div class="desc">13 checks for web, OpenAPI scoring, MCP tool naming/description/parameter analysis</div>
+      </div>
+      <div class="box">
+        <div class="name">Optimizer</div>
+        <div class="desc">Claude-powered fix generation citing GEO, AAIO, and MCP research</div>
+      </div>
+      <div class="box highlight">
+        <div class="name">Agent Simulation Engine</div>
+        <div class="desc">Multi-turn agentic sessions with web_search + read_docs tools, SSE streaming</div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="col-header">Frontend (Next.js + TypeScript)</div>
+      <div class="box">
+        <div class="name">Discovery Tab</div>
+        <div class="desc">AI visibility score, bot access grid, content quality findings with consequences</div>
+      </div>
+      <div class="box">
+        <div class="name">Metrics Tab</div>
+        <div class="desc">Detailed score breakdown with expandable per-check details and research citations</div>
+      </div>
+      <div class="box highlight">
+        <div class="name">Simulation Tab</div>
+        <div class="desc">Real-time streaming session log, side-by-side agent comparison, optimization validation</div>
+      </div>
+      <div class="col-header" style="margin-top:20px">Key APIs</div>
+      <div class="box">
+        <div class="name">Claude tool_search_tool_bm25</div>
+        <div class="desc">Production tool discovery mechanism with defer_loading for benchmarking</div>
+      </div>
+    </div>
+  </div>
+  <div class="tech-row">
+    <span class="tech-pill">FastAPI</span>
+    <span class="tech-pill">Next.js 16</span>
+    <span class="tech-pill">TypeScript</span>
+    <span class="tech-pill">Tailwind CSS</span>
+    <span class="tech-pill">Claude Sonnet 4.6</span>
+    <span class="tech-pill">OpenAI API</span>
+    <span class="tech-pill">shadcn/ui</span>
+    <span class="tech-pill">Recharts</span>
+    <span class="tech-pill">SSE Streaming</span>
+  </div>
+</div>
+
+<!-- SLIDE 5: Demo -->
+<div class="slide slide-5">
+  <div class="logo"><span>Pick</span><span>Me</span></div>
+  <h2>Live Demo</h2>
+  <div class="links">
+    <div class="link"><strong>github.com/</strong>sissississi-013/PickMe</div>
+  </div>
+</div>
+
+</body>
+</html>
