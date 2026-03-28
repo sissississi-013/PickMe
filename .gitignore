@@ -1,2 +1,7 @@
 .DS_Store
 .worktrees/
+__pycache__/
+*.pyc
+node_modules/
+.next/
+.env

@@ -13,6 +13,7 @@ export default function Home() {
   const [traffic, setTraffic] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [lastUrl, setLastUrl] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   async function handleScan(url: string) {
     setLoading(true);
@@ -31,10 +32,13 @@ export default function Home() {
 
   async function handleUploadLog(file: File) {
     setLoading(true);
+    setError(null);
     try {
       const result = await apiUpload("/api/traffic/classify", file);
       setTraffic(result);
-    } catch (err) {
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      setError(`Upload failed: ${msg}`);
       console.error("Upload failed:", err);
     } finally {
       setLoading(false);
@@ -50,6 +54,12 @@ export default function Home() {
         </div>
 
         <ScanInput onScan={handleScan} onUploadLog={handleUploadLog} loading={loading} />
+
+        {error && (
+          <div className="bg-red-100 dark:bg-red-950 border border-red-500 text-red-700 dark:text-red-300 px-4 py-2 rounded">
+            {error}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <ScorePanel reports={reports} loading={loading} />

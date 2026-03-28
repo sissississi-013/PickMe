@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 interface ScanInputProps {
   onScan: (url: string) => void;
@@ -13,6 +12,7 @@ interface ScanInputProps {
 
 export function ScanInput({ onScan, onUploadLog, loading }: ScanInputProps) {
   const [url, setUrl] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="flex gap-2">
@@ -26,18 +26,24 @@ export function ScanInput({ onScan, onUploadLog, loading }: ScanInputProps) {
       <Button onClick={() => url && onScan(url)} disabled={loading || !url}>
         {loading ? "Scanning..." : "Scan"}
       </Button>
-      <label className={cn(buttonVariants({ variant: "outline" }), "cursor-pointer")}>
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".log,.txt,.csv,.json"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onUploadLog(file);
+          if (fileRef.current) fileRef.current.value = "";
+        }}
+      />
+      <button
+        type="button"
+        className="inline-flex shrink-0 items-center justify-center rounded-lg border border-border bg-background px-2.5 h-8 text-sm font-medium hover:bg-muted cursor-pointer"
+        onClick={() => fileRef.current?.click()}
+      >
         Upload Log
-        <input
-          type="file"
-          accept=".log,.txt,.csv,.json"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) onUploadLog(file);
-          }}
-        />
-      </label>
+      </button>
     </div>
   );
 }

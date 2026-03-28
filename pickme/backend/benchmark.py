@@ -4,7 +4,9 @@ from openai import AsyncOpenAI
 from models import BenchmarkResult, BenchmarkReport
 
 anthropic_client = AsyncAnthropic()
-openai_client = AsyncOpenAI()
+
+def _get_openai_client() -> AsyncOpenAI:
+    return AsyncOpenAI()
 
 
 async def run_benchmark(target_name: str, prompt: str, context_before: str, context_after: str | None = None) -> BenchmarkReport:
@@ -89,7 +91,7 @@ async def _ask_claude(prompt: str, context: str) -> str:
 
 
 async def _ask_gpt(prompt: str, context: str) -> str:
-    resp = await openai_client.chat.completions.create(
+    resp = await _get_openai_client().chat.completions.create(
         model="gpt-4o-mini",
         max_tokens=1024,
         messages=[{"role": "user", "content": f"Context:\n{context}\n\nQuestion: {prompt}"}],
