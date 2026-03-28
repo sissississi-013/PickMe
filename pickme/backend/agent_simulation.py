@@ -93,9 +93,9 @@ AGENT_TOOLS = [
 async def run_agent_simulation(
     target_tool: str,
     target_url: str | None,
-    target_description: str,
+    target_description: str | None,
     optimized_description: str | None,
-    task: str,
+    task: str | None,
     competitors: list[str] | None = None,
 ) -> SimulationResult:
     return await _run_simulation_impl(
@@ -107,14 +107,27 @@ async def run_agent_simulation(
 async def _run_simulation_impl(
     target_tool: str,
     target_url: str | None,
-    target_description: str,
+    target_description: str | None,
     optimized_description: str | None,
-    task: str,
+    task: str | None,
     competitors: list[str] | None,
     q: asyncio.Queue | None,
 ) -> SimulationResult:
     logs: list[LogEntry] = []
-    _log(logs, "system", "info", f"Starting simulation for '{target_tool}'", f"Task: {task}", q)
+    _log(logs, "system", "info", f"Starting simulation for '{target_tool}'", queue=q)
+
+    # Auto-generate missing fields from just the tool name
+    if not target_description or not task:
+        _log(logs, "system", "info", f"Auto-generating context for '{target_tool}'...", queue=q)
+        auto = await _auto_fill(target_tool)
+        if not target_description:
+            target_description = auto.get("description", f"A tool called {target_tool}")
+            _log(logs, "system", "info", f"Generated description: {target_description}", queue=q)
+        if not task:
+            task = auto.get("task", f"Build something using {target_tool}")
+            _log(logs, "system", "info", f"Generated task: {task}", queue=q)
+
+    _log(logs, "system", "info", f"Task: {task}", queue=q)
 
     # Optimize description if not provided
     if not optimized_description:
@@ -406,6 +419,29 @@ async def _fetch_docs(tool_name: str, url: str | None) -> str:
     return f"Documentation for {tool_name}: Evaluate based on general knowledge. {tool_name} is a popular tool in its category."
 
 
+async def _auto_fill(tool_name: str) -> dict:
+    """Auto-generate description, task, and competitors from just a tool name."""
+    msg = await client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=512,
+        messages=[{"role": "user", "content": f"""For the tool/framework/service called "{tool_name}", generate:
+1. A deliberately MEDIOCRE one-sentence description (generic, undersells the tool — like what a lazy developer would write)
+2. A realistic task that a developer would use this tool for
+3. 4 real competing alternatives
+
+Return JSON only:
+{{"description": "...", "task": "...", "competitors": ["...", "...", "...", "..."]}}
+No markdown fencing."""}],
+    )
+    try:
+        raw = msg.content[0].text.strip()
+        if raw.startswith("```"):
+            raw = raw.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        return json.loads(raw)
+    except Exception:
+        return {"description": f"A tool called {tool_name}", "task": f"Build a project using {tool_name}"}
+
+
 async def _optimize_description(tool_name: str, original_desc: str, task: str) -> str:
     msg = await client.messages.create(
         model="claude-sonnet-4-6",
@@ -444,9 +480,9 @@ def _log(logs: list[LogEntry], actor: str, type: str, content: str, data: str | 
 async def run_agent_simulation_streaming(
     target_tool: str,
     target_url: str | None,
-    target_description: str,
+    target_description: str | None,
     optimized_description: str | None,
-    task: str,
+    task: str | None,
     competitors: list[str] | None = None,
     log_queue: asyncio.Queue | None = None,
 ) -> SimulationResult:

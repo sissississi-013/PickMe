@@ -131,9 +131,9 @@ async def generate_tool(req: GenerateToolRequest):
 class SimulationRequest(BaseModel):
     target_tool: str
     target_url: str | None = None
-    target_description: str
+    target_description: str | None = None
     optimized_description: str | None = None
-    task: str
+    task: str | None = None
     competitors: list[str] | None = None
 
 @app.post("/api/simulate", response_model=SimulationResult)

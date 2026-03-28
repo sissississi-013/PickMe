@@ -73,10 +73,10 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
 
   // Agent simulation state
   const [streamingLogs, setStreamingLogs] = useState<LogEntry[]>([]);
-  const [toolName, setToolName] = useState("FastAPI");
+  const [toolName, setToolName] = useState("");
   const [toolUrl, setToolUrl] = useState("");
-  const [toolDesc, setToolDesc] = useState("A modern, fast web framework for building APIs with Python");
-  const [simTask, setSimTask] = useState("Build a REST API backend for a task management app");
+  const [toolDesc, setToolDesc] = useState("");
+  const [simTask, setSimTask] = useState("");
   const [competitors, setCompetitors] = useState("");
   const [simResult, setSimResult] = useState<SimulationResult | null>(null);
   const [simLoading, setSimLoading] = useState(false);
@@ -117,8 +117,8 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
         body: JSON.stringify({
           target_tool: toolName,
           target_url: toolUrl || null,
-          target_description: toolDesc,
-          task: simTask,
+          target_description: toolDesc || null,
+          task: simTask || null,
           competitors: compList,
         }),
       });
@@ -240,55 +240,58 @@ export function SimulationTab({ reports, lastUrl, onRescan }: SimulationTabProps
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <label className="text-sm text-muted-foreground">Tool / Framework / API name</label>
-            <Input
-              value={toolName}
-              onChange={(e) => setToolName(e.target.value)}
-              placeholder="e.g. FastAPI, Stripe, React"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm text-muted-foreground">Documentation URL (optional)</label>
-            <Input
-              value={toolUrl}
-              onChange={(e) => setToolUrl(e.target.value)}
-              placeholder="https://github.com/..."
-              className="font-mono text-sm"
-            />
-          </div>
-        </div>
-
         <div className="space-y-1.5">
-          <label className="text-sm text-muted-foreground">Current description of your tool</label>
-          <textarea
-            className="w-full h-20 text-sm border rounded-md p-3 bg-muted/30 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
-            value={toolDesc}
-            onChange={(e) => setToolDesc(e.target.value)}
-            placeholder="Describe what your tool does..."
+          <label className="text-sm font-medium">Tool name <span className="text-muted-foreground font-normal">— everything else is auto-generated</span></label>
+          <Input
+            value={toolName}
+            onChange={(e) => setToolName(e.target.value)}
+            placeholder="e.g. Hono, Drizzle ORM, Supabase, FastAPI"
+            className="text-base"
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <label className="text-sm text-muted-foreground">Task for the agent</label>
-            <Input
-              value={simTask}
-              onChange={(e) => setSimTask(e.target.value)}
-              placeholder="Build a REST API backend..."
-            />
+        <details className="text-sm">
+          <summary className="text-muted-foreground cursor-pointer hover:text-foreground">Advanced options</summary>
+          <div className="mt-3 space-y-3 pl-1">
+            <div className="space-y-1.5">
+              <label className="text-sm text-muted-foreground">Description override</label>
+              <textarea
+                className="w-full h-16 text-sm border rounded-md p-3 bg-muted/30 resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                value={toolDesc}
+                onChange={(e) => setToolDesc(e.target.value)}
+                placeholder="Leave empty to auto-generate a mediocre description (tests worst case)"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-sm text-muted-foreground">Task override</label>
+                <Input
+                  value={simTask}
+                  onChange={(e) => setSimTask(e.target.value)}
+                  placeholder="Auto-generated"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm text-muted-foreground">Competitors</label>
+                <Input
+                  value={competitors}
+                  onChange={(e) => setCompetitors(e.target.value)}
+                  placeholder="Auto-detected"
+                  className="font-mono text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm text-muted-foreground">Docs URL</label>
+                <Input
+                  value={toolUrl}
+                  onChange={(e) => setToolUrl(e.target.value)}
+                  placeholder="Auto-fetched"
+                  className="font-mono text-sm"
+                />
+              </div>
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <label className="text-sm text-muted-foreground">Competitors (optional, comma-separated)</label>
-            <Input
-              value={competitors}
-              onChange={(e) => setCompetitors(e.target.value)}
-              placeholder="Express, Django, Flask, Spring Boot"
-              className="font-mono text-sm"
-            />
-          </div>
-        </div>
+        </details>
 
         <Button
           onClick={runSimulation}
